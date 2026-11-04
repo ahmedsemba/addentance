@@ -85,6 +85,11 @@
 <h4>2- رفع ملف البصمة اليومي ZK</h4>
 <div class="flex"><input type="file" id="zkFile" accept=".csv"><button class="btn-blue" onclick="importZK()">رفع بصمة</button><span id="importMsg" class="small"></span></div>
 </div>
+<div style="border:2px solid #6a1b9a;padding:12px;border-radius:8px;background:#f3e5f5;margin-top:12px">
+<h4>3- النسخ الاحتياطي واستعادة البيانات</h4>
+<div class="flex"><button class="btn-primary" onclick="exportFullBackup()">تنزيل نسخة احتياطية كاملة</button><input type="file" id="backupFile" accept=".json,application/json"><button class="btn-blue" onclick="importFullBackup()">استعادة نسخة احتياطية</button></div>
+<div class="small">احتفظ بنسخة احتياطية دورية قبل مسح بيانات المتصفح أو تغيير الجهاز.</div>
+</div>
 <div id="importPreview" class="small" style="margin-top:10px"></div>
 </div>
 
@@ -127,6 +132,24 @@ function filterByDept(){const id=bulkDept.value;if(!id){currentFilteredCodes=nul
 function clearFilter(){currentFilteredCodes=null;renderDaily();}
 function autoCalcAll(){const date=dailyDate.value;emps.forEach(emp=>{const key=`${date}_${emp.code}`;let rec=attendance[key];if(!rec)return;const sch=getSch(emp);if(rec.in1&&rec.out1){let inM=parseM(rec.in1),outM=parseM(rec.out1),sF=parseM(sch.from),sT=parseM(sch.to);let isNight=sT<=sF;if(isNight&&outM<inM)outM+=1440;if(!rec.rest&&!rec.holiday){if(inM>sF+15)rec.delay='نص يوم';let sTAdj=isNight?sT+1440:sT;if(outM < sTAdj-30)rec.early='مبكر';}} if(calcNoSign(rec))rec.noSign='نص يوم'; if(calcAutoAbsent(rec)&&!rec.rest)rec.absent=true;});saveAll();renderDaily();}
 function importEmpsWithDepts(){const file=document.getElementById('empFile').files[0];if(!file)return alert('اختر ملف');const reader=new FileReader();reader.onload=function(e){try{let rows=[];if(file.name.endsWith('.csv')){let text;try{text=new TextDecoder('windows-1256').decode(e.target.result);}catch{text=new TextDecoder().decode(e.target.result);}rows=text.split(/\r?\n/).map(l=>l.split(/[,;]/).map(s=>s.replace(/^"|"$/g,'').trim()));}else{const data=new Uint8Array(e.target.result);const wb=XLSX.read(data,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];rows=XLSX.utils.sheet_to_json(ws,{header:1});}let addedEmp=0, addedDept=0, updatedAtt=0;for(let i=0;i<rows.length;i++){const r=rows[i];if(!r||r.length<2)continue;if(i==0 && (String(r[0]).toLowerCase().includes('كود') || String(r[0]).toLowerCase().includes('code')))continue;const code=String(r[0]||'').trim();const name=String(r[1]||'').trim();let dateStr=String(r[2]||'').trim();const deptName=String(r[3]||'').trim();const inT=String(r[4]||'').trim().slice(0,5);const outT=String(r[5]||'').trim().slice(0,5);if(!code)continue;let deptId='';if(deptName){let existing=depts.find(d=>d.name.trim().toLowerCase()==deptName.toLowerCase());if(existing){deptId=existing.id;}else{deptId='d'+Date.now()+Math.random().toString(36).slice(2,4);depts.push({id:deptId,name:deptName,from:'08:00',to:'16:00',off:'Friday'});addedDept++;}}else{deptId=depts[0]?.id||'';}let empIdx=emps.findIndex(ex=>ex.code==code);if(empIdx>=0){if(name)emps[empIdx].name=name;if(deptId)emps[empIdx].dept=deptId;}else{emps.push({code,name:name||code,dept:deptId,from:'',to:''});addedEmp++;}if(dateStr){let iso='';if(dateStr.includes('/')){const p=dateStr.split('/');if(p.length==3){if(p[0].length==4)iso=`${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`;else iso=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;}}else if(dateStr.includes('-')){iso=dateStr.slice(0,10);}if(iso){const key=`${iso}_${code}`;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};if(inT)attendance[key].in1=inT;if(outT)attendance[key].out1=outT;updatedAtt++;}}}saveAll();renderDepts();renderEmps();document.getElementById('empImportMsg').textContent=`تم: إدارات ${addedDept} - موظفين ${addedEmp} - حضور ${updatedAtt}`;}catch(err){alert('خطأ: '+err.message);}};reader.readAsArrayBuffer(file);}
+function exportFullBackup(){
+ const payload={version:1,createdAt:new Date().toISOString(),depts,emps,attendance};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');
+ a.href=url;a.download='نسخة_احتياطية_الحضور_'+new Date().toISOString().slice(0,10)+'.json';
+ document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+async function importFullBackup(){
+ const file=document.getElementById('backupFile').files[0];if(!file)return alert('اختر ملف النسخة الاحتياطية');
+ if(!confirm('سيتم استبدال بيانات الموظفين والإدارات والحضور الحالية بمحتويات النسخة. هل تريد المتابعة؟'))return;
+ try{
+  const data=JSON.parse(await file.text());
+  if(!data||!Array.isArray(data.emps)||!Array.isArray(data.depts)||!data.attendance||typeof data.attendance!=='object')throw new Error('صيغة النسخة الاحتياطية غير صحيحة');
+  emps=data.emps;depts=data.depts;attendance=data.attendance;saveAll();
+  renderDepts();renderEmps();renderDaily();renderReportDepts();
+  alert('تمت استعادة البيانات بنجاح');
+ }catch(err){alert('تعذر استعادة النسخة: '+err.message);}
+}
 function downloadTemplate(){const rows=[['كود','اسم','تاريخ (dd/mm/yyyy)','إدارة','حضور (HH:MM)','انصراف (HH:MM)'],['467','احمد سمبا','01/11/2026','التنكات','08:05','16:30']];const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'قالب');XLSX.writeFile(wb,'قالب_الموظفين_بالإدارات.xlsx');}
 async function importZK(){const file=document.getElementById('zkFile').files[0];if(!file)return alert('اختر ملف');const buf=await file.arrayBuffer();let text;try{text=new TextDecoder('windows-1256').decode(buf);}catch{text=new TextDecoder().decode(buf);}const lines=text.split(/\r?\n/);const rows=lines.map(l=>l.split(';').map(s=>s.replace(/^"|"$/g,'').trim())).filter(r=>r.length>5);let added=0;for(let i=1;i<rows.length;i++){const r=rows[i];if(r.length<8)continue;const code=r[0].trim();const name=r[1];const dStr=r[2];const inT=r[6];const outT=r[7];if(!code||!dStr)continue;let p=dStr.split('/');let iso=p.length==3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:dStr;const key=`${iso}_${code}`;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};if(inT)attendance[key].in1=inT.slice(0,5);if(outT)attendance[key].out1=outT.slice(0,5);if(!emps.some(e=>e.code==code)){emps.push({code,name:name||code,dept:depts[0]?.id||'',from:'',to:''});added++;}}saveAll();document.getElementById('importMsg').textContent=`تم ${rows.length-1} - جدد ${added}`;renderEmps();}
 let lastReportData=[];
