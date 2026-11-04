@@ -271,7 +271,76 @@ function printEmployeeStatement(){const emp=emps.find(e=>e.code==repPrintEmp.val
 
 function calcReport(){const from=repFrom.value,to=repTo.value;if(!from||!to)return alert('اختار');window.__absMonthCounts={};const empSearch=(repEmpSearch.value||'').toLowerCase();const selectedDepts=Array.from(document.querySelectorAll('.repDeptChk:checked')).map(c=>c.value);const tb=document.querySelector('#reportTable tbody');tb.innerHTML='';lastReportData=[];let totals={};for(let d=new Date(from);d<=new Date(to);d.setDate(d.getDate()+1)){let iso=d.toISOString().slice(0,10);emps.forEach(emp=>{if(empSearch&&!emp.code.includes(empSearch)&&!emp.name.toLowerCase().includes(empSearch))return;if(selectedDepts.length>0&&!selectedDepts.includes(emp.dept))return;const key=`${iso}_${emp.code}`;const rec=attendance[key];if(!rec)return;const dn=(depts.find(x=>x.id==emp.dept)||{}).name||emp.dept||'';let status='';if(rec.leaveStatus)status=rec.leaveStatus=='paid'?'إجازة مدفوعة':rec.leaveStatus=='unpaid'?'إجازة بدون أجر':rec.leaveStatus=='half_paid'?'نصف يوم مدفوع':rec.leaveStatus=='half_unpaid'?'نصف يوم بدون أجر':'إجازة';else if(rec.absent)status='غياب'; else if(rec.mission)status='مأمورية'; else if(rec.rest)status='راحة'; else if(rec.holiday)status='عطلة'; else if(rec.in1||rec.out1)status='حضور'; else status='-';let ex1='',ex2='',exRest='';if(rec.extra){if(rec.rest||rec.holiday)exRest=rec.extra;else if(rec.extraFactor==1)ex1=rec.extra; else ex2=rec.extra;}let permStr=rec.permHours?`${rec.permHours}س ${rec.permType=='free'?'مجاني':'خصم'}`:'';if(!totals[emp.code])totals[emp.code]={code:emp.code,name:emp.name,dept:dn,absCount:0,delay:0,early:0,noSign:0,penalty:0,workHours:0,permFree:0,permDeduct:0,ex1:0,ex2:0,exRest:0,present:0};let absPen='';if(rec.absent){totals[emp.code].absCount++;const c=absenceOrdinal(emp.code,iso);if(c==1)absPen='1.25';else if(c==2)absPen='1.5';else if(c==3)absPen='2';else absPen='3';}if(rec.delay)totals[emp.code].delay++;if(rec.early)totals[emp.code].early++;if(rec.noSign)totals[emp.code].noSign++;if(rec.workHours)totals[emp.code].workHours+=Number(rec.workHours)||0;if(rec.penaltyDays)totals[emp.code].penalty+=Number(rec.penaltyDays)||0;if(rec.permHours){if(rec.permType=='free')totals[emp.code].permFree+=parseFloat(rec.permHours);else totals[emp.code].permDeduct+=parseFloat(rec.permHours);}if(rec.extra){const v=parseFloat(rec.extra)||0;if(rec.rest||rec.holiday)totals[emp.code].exRest+=v;else if(rec.extraFactor==1)totals[emp.code].ex1+=v; else totals[emp.code].ex2+=v;}if(status=='حضور'||status=='مأمورية')totals[emp.code].present++;const row=[emp.code,emp.name,dn,iso,rec.in1,rec.out1,rec.workHours||'',status,rec.delay,rec.early,rec.noSign,rec.penaltyDays||'',permStr,absPen,ex1,ex2,exRest];lastReportData.push({code:emp.code,name:emp.name,dept:dn,date:iso,status,rec,perm:permStr,absPen,ex1,ex2,exRest});const tr=document.createElement('tr');tr.innerHTML=row.map(v=>`<td>${v}</td>`).join('');tb.appendChild(tr);});}const sumDiv=document.getElementById('reportSummary');sumDiv.style.display='block';let html=`<b>ملخص من ${from} إلى ${to}:</b><br>`;for(const code in totals){const t=totals[code];html+=`<div style="border-bottom:1px solid #ddd;padding:6px"><b>${t.code} - ${t.name} (${t.dept})</b>: حضور ${t.present} | غياب ${t.absCount} | تأخير ${t.delay} | عدم توقيع ${t.noSign} | ساعات عمل ${t.workHours.toFixed(2)} | جزاءات ${t.penalty} يوم | إذن مجاني ${t.permFree}س | خصم ${t.permDeduct}س | إضافي x1 ${t.ex1}س | x2 ${t.ex2}س | راحة ${t.exRest}س</div>`;}sumDiv.innerHTML=html;}
 function exportReportExcel(){if(lastReportData.length==0)return alert('احسب الأول');const rows=[['كود','اسم','إدارة','تاريخ','حضور','انصراف','ساعات العمل','حالة','تأخير','مبكر','عدم توقيع','جزاء (أيام)','إذن','غياب شريحة','إضافي x1','إضافي x2','راحة/عطلة']];lastReportData.forEach(r=>{rows.push([r.code,r.name,r.dept,r.date,r.rec.in1,r.rec.out1,r.rec.workHours||'',r.status,r.rec.delay,r.rec.early,r.rec.noSign,r.rec.penaltyDays||'',r.perm,r.absPen,r.ex1,r.ex2,r.exRest]);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'تفصيلي');XLSX.writeFile(wb,`تقرير_${repFrom.value}_الى_${repTo.value}.xlsx`);}
-function exportExcel(){const from=expFrom.value,to=expTo.value;if(!from||!to||from>to)return alert('اختار فترة صحيحة');const detail=[['كود','اسم','إدارة','ميعاد','تاريخ','حضور','انصراف','ساعات العمل','تأخير','مبكر','عدم توقيع','جزاء (أيام)','إذن','إضافي','معامل','غياب','مأمورية','موقع المأمورية','نوع الإجازة','راحة','عطلة']];const sums={};for(let d=new Date(from+'T12:00:00');d<=new Date(to+'T12:00:00');d.setDate(d.getDate()+1)){const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');emps.forEach(emp=>{const rec=attendance[iso+'_'+emp.code];if(!rec)return;const dept=depts.find(x=>x.id==emp.dept)||{};const sch=getSch(emp,iso);const status=rec.leaveStatus?(rec.leaveStatus=='paid'?'إجازة مدفوعة':rec.leaveStatus=='unpaid'?'إجازة بدون أجر':rec.leaveStatus=='half_paid'?'نصف يوم مدفوع':'نصف يوم بدون أجر'):rec.absent?'غياب':rec.mission?'مأمورية':rec.rest?'راحة':rec.holiday?'عطلة':(rec.in1||rec.out1)?'حضور':'-';detail.push([emp.code,emp.name,dept.name||emp.dept,sch.from+'-'+sch.to,iso,rec.in1,rec.out1,rec.workHours||'',rec.delay,rec.early,rec.noSign,rec.penaltyDays||'',rec.permHours,rec.extra,rec.extraFactor||1,rec.absent?'غياب':'',rec.mission?'مأمورية':'',rec.missionPlace||'',rec.leaveStatus||'',rec.rest?'راحة':'',rec.holiday?'عطلة':'']);if(!sums[emp.code])sums[emp.code]={code:emp.code,name:emp.name,dept:dept.name||emp.dept,present:0,absence:0,mission:0,rest:0,holiday:0,delay:0,early:0,noSign:0,penalty:0,workHours:0,freePerm:0,deductPerm:0,x1:0,x2:0};const s=sums[emp.code];if(status=='حضور')s.present++;if(status=='غياب')s.absence++;if(status=='مأمورية')s.mission++;if(status=='راحة')s.rest++;if(status=='عطلة')s.holiday++;if(rec.delay)s.delay++;if(rec.early)s.early++;if(rec.noSign)s.noSign++;if(rec.workHours)s.workHours+=Number(rec.workHours)||0;if(rec.penaltyDays)s.penalty+=Number(rec.penaltyDays)||0;if(rec.permHours){if(rec.permType=='free')s.freePerm+=Number(rec.permHours)||0;else s.deductPerm+=Number(rec.permHours)||0;}if(rec.extra){if(Number(rec.extraFactor)==2)s.x2+=Number(rec.extra)||0;else s.x1+=Number(rec.extra)||0;}});}const summary=[['كود','اسم','إدارة','أيام حضور','غياب','مأموريات','راحة','عطلات','تأخير','مبكر','عدم توقيع','ساعات العمل','جزاءات (أيام)','إذن مجاني (ساعات)','إذن بخصم (ساعات)','إضافي x1','إضافي x2']];Object.values(sums).forEach(s=>summary.push([s.code,s.name,s.dept,s.present,s.absence,s.mission,s.rest,s.holiday,s.delay,s.early,s.noSign,s.workHours,s.penalty,s.freePerm,s.deductPerm,s.x1,s.x2]));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summary),'ملخص الموظفين');XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detail),'تفصيلي');XLSX.writeFile(wb,'تقرير_الحضور_المجمع_'+from+'_الى_'+to+'.xlsx');}
+function exportExcel(){
+ const from=expFrom.value,to=expTo.value;
+ if(!from||!to||from>to)return alert('اختار فترة صحيحة');
+ const headers=['رقم البصمه','الإسم','التاريخ','المواعيد','الحضور الفعلي','الإنصراف الفعلي','تأخير','إنصراف مبكر','اجازه بالخصم','غياب','جزاء','إضافي','إستثناءات'];
+ const aoa=[[],headers];
+ const days=[];
+ for(let d=new Date(from+'T12:00:00');d<=new Date(to+'T12:00:00');d.setDate(d.getDate()+1)){
+  days.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+ }
+ const ordered=emps.slice().sort((a,b)=>String(a.code).localeCompare(String(b.code),'en',{numeric:true}));
+ const timeValue=v=>{if(!v)return null;const m=String(v).match(/^(\\d{1,2}):(\\d{2})/);return m?(Number(m[1])*60+Number(m[2]))/1440:null;};
+ const num=v=>{const n=Number(v);return Number.isFinite(n)&&n!==0?n:null;};
+ const exceptionFor=(r,sch)=>{
+  if(r.holiday)return 'عطله رسميه';
+  if(r.rest||isDeptRestDay(currentIso,sch))return 'راحة';
+  if(r.mission)return 'ماموريه';
+  if(r.leaveStatus){
+   if(r.leaveStatus=='unpaid'||r.leaveStatus=='half_unpaid')return 'اجازه بالخصم';
+   return 'اجازه ';
+  }
+  if(r.permHours){
+   if(r.permType=='deduct')return Number(r.permHours)>=2?'اذن ساعتين بالخصم':'اذن بالخصم';
+   return 'اذن';
+  }
+  if(r.penaltyDays)return r.absent?'غياب / جزاء':'جزاء';
+  if(r.absent)return 'غياب';
+  if(r.noSign||calcNoSign(r))return 'عدم توقيع';
+  if(Number(r.extra)>0)return Number(r.extra)>=8?'يوم اضافي':'اضافي';
+  return '';
+ };
+ let currentIso='';
+ for(const emp of ordered){
+  const dept=depts.find(x=>x.id==emp.dept)||{};
+  for(const iso of days){
+   currentIso=iso;
+   const rec=attendance[iso+'_'+emp.code]||{};
+   const sch=getSch(emp,iso);
+   const rest=!!rec.rest||isDeptRestDay(iso,sch);
+   const absent=!!rec.absent||(!rec.in1&&!rec.out1&&!rec.mission&&!rest&&!rec.holiday&&!rec.permHours&&!rec.leaveStatus&&iso<=(new Date().toISOString().slice(0,10)));
+   const unpaidLeave=(rec.leaveStatus=='unpaid'?Number(rec.leaveFraction||1):rec.leaveStatus=='half_unpaid'?Number(rec.leaveFraction||0.5):0);
+   const shiftHours=(()=>{if(!sch.from||!sch.to)return 8;const a=timeValue(sch.from),b=timeValue(sch.to);if(a===null||b===null)return 8;let h=(b-a)*24;if(h<=0)h+=24;return h||8;})();
+   const permDeduct=rec.permHours&&rec.permType=='deduct'?Number(rec.permHours)/shiftHours:0;
+   const leaveDeduct=unpaidLeave+permDeduct;
+   const exception=exceptionFor({...rec,absent},sch);
+   const row=[
+    emp.code,emp.name||'',new Date(iso+'T12:00:00'),dept.name||emp.dept||'',
+    timeValue(rec.in1),timeValue(rec.out1),rec.delay||null,rec.early||null,
+    leaveDeduct?Number(leaveDeduct.toFixed(2)):null,absent?'Y':null,
+    num(rec.penaltyDays),num(rec.extra)?Number(rec.extra)*((Number(rec.extraFactor)||1)):null,exception||null
+   ];
+   aoa.push(row);
+  }
+ }
+ const last=aoa.length;
+ const totals=Array(13).fill(null);
+ for(let c=6;c<=11;c++)totals[c]= {f:'SUBTOTAL(9,'+String.fromCharCode(65+c)+'3:'+String.fromCharCode(65+c)+last+')'};
+ aoa[0]=totals;
+ const ws=XLSX.utils.aoa_to_sheet(aoa);
+ ws['!cols']=[{wch:15},{wch:27},{wch:13},{wch:22},{wch:16},{wch:16},{wch:12},{wch:14},{wch:14},{wch:10},{wch:10},{wch:12},{wch:25}];
+ ws['!views']=[{state:'frozen',ySplit:2}];
+ ws['!autofilter']={ref:'A2:M'+last};
+ for(let r=3;r<=last;r++){
+  const dc=ws['C'+r];if(dc)dc.z='dd/mm/yyyy';
+  for(const col of ['E','F'])if(ws[col+r])ws[col+r].z='hh:mm';
+  for(const col of ['G','H','I','K','L'])if(ws[col+r])ws[col+r].z='0.##';
+ }
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,'العبور');
+ XLSX.writeFile(wb,'تقرير_العبور_'+from+'_الى_'+to+'.xlsx');
+}
 renderDepts();renderEmps();
 dailyDate.value=new Date().toISOString().slice(0,10);
 const today=new Date();const f=new Date(today);f.setDate(26);f.setMonth(f.getMonth()-1);const t=new Date(today);t.setDate(25);
