@@ -150,7 +150,28 @@ let editingEmpCode=null;
 function startNewEmp(){editingEmpCode=null;empCode.value='';empName.value='';empTimeFrom.value='';empTimeTo.value='';empOff.value='';document.getElementById('empLeaveType').value='migrant';document.getElementById('empHireDate').value='';document.getElementById('empEditBox').style.display='block';}
 function editEmp(code){const emp=emps.find(e=>e.code==code);if(!emp)return;editingEmpCode=code;empCode.value=emp.code;empName.value=emp.name;empDept.value=emp.dept;empTimeFrom.value=emp.from||'';empTimeTo.value=emp.to||'';empOff.value=emp.off===undefined?'':emp.off;document.getElementById('empLeaveType').value=emp.leaveType||'migrant';document.getElementById('empHireDate').value=emp.hireDate||'';document.getElementById('empEditBox').style.display='block';}
 function cancelEmpEdit(){document.getElementById('empEditBox').style.display='none';editingEmpCode=null;}
-function saveEmpEdit(){const c=empCode.value.trim(),nm=empName.value.trim(),dp=empDept.value,tf=empTimeFrom.value,tt=empTimeTo.value,off=empOff.value;if(!c||!nm)return alert('كود واسم');const old=editingEmpCode?emps.find(e=>e.code==editingEmpCode):null;const obj={...(old||{}),code:c,name:nm,dept:dp,from:tf,to:tt,off,leaveType:document.getElementById('empLeaveType').value,hireDate:document.getElementById('empHireDate').value};if(editingEmpCode){const idx=emps.findIndex(e=>e.code==editingEmpCode);if(idx>=0)emps[idx]=obj;if(c!=editingEmpCode){for(const k in attendance){if(k.endsWith('_'+editingEmpCode)){const newK=k.replace('_'+editingEmpCode,'_'+c);attendance[newK]=attendance[k];delete attendance[k];}}}}else{if(emps.some(e=>e.code==c))return alert('الكود موجود');emps.push(obj);}saveAll();renderEmps();cancelEmpEdit();}
+function saveEmpEdit(){
+ const c=empCode.value.trim(),nm=empName.value.trim(),dp=empDept.value,tf=empTimeFrom.value,tt=empTimeTo.value,off=empOff.value;
+ if(!c||!nm)return alert('كود واسم');
+ const old=editingEmpCode?emps.find(e=>e.code==editingEmpCode):null;
+ if(emps.some(e=>e.code==c&&e.code!=editingEmpCode))return alert('الكود موجود بالفعل لموظف آخر');
+ const obj={...(old||{}),code:c,name:nm,dept:dp,from:tf,to:tt,off,leaveType:document.getElementById('empLeaveType').value,hireDate:document.getElementById('empHireDate').value};
+ if(editingEmpCode){
+  const idx=emps.findIndex(e=>e.code==editingEmpCode);
+  if(idx<0)return alert('الموظف غير موجود؛ أعد تحميل القائمة وحاول مرة أخرى');
+  emps[idx]=obj;
+  if(c!=editingEmpCode){
+   const oldSuffix='_'+editingEmpCode,newSuffix='_'+c,moves=[];
+   for(const k of Object.keys(attendance)){if(k.endsWith(oldSuffix))moves.push([k,k.slice(0,-oldSuffix.length)+newSuffix,attendance[k]]);}
+   moves.forEach(([from,to,value])=>{attendance[to]={...value,...(attendance[to]||{})};delete attendance[from];});
+   leaveLedger.forEach(x=>{if(x.code==editingEmpCode)x.code=c;});
+   variableShifts.forEach(x=>{if(x.code==editingEmpCode)x.code=c;});
+   weeklyRosters.forEach(x=>{if(x.code==editingEmpCode)x.code=c;});
+   saveExtraModules();
+  }
+ }else{emps.push(obj);}
+ saveAll();renderEmps();renderRosterTable();renderShiftTable();renderLeaveModule();cancelEmpEdit();
+}
 function delEmp(code){if(confirm('حذف؟')){emps=emps.filter(e=>e.code!=code);saveAll();renderEmps();}}
 function renderEmps(){const tb=document.querySelector('#empTable tbody');tb.innerHTML='';const filterDept=empFilterDept.value;const search=(empSearch.value||'').toLowerCase();let list=emps;if(filterDept)list=list.filter(e=>e.dept==filterDept);if(search)list=list.filter(e=>e.code.includes(search)||e.name.toLowerCase().includes(search));list.forEach(e=>{const d=depts.find(x=>x.id==e.dept);const dname=d?d.name:(e.dept||'');const timeTxt=e.from?e.from+'-'+e.to:d?d.from+'-'+d.to:'-';const offTxt={'':'حسب الإدارة','None':'بدون','Saturday':'السبت','Sunday':'الأحد','Monday':'الإثنين','Tuesday':'الثلاثاء','Wednesday':'الأربعاء','Thursday':'الخميس','Friday':'الجمعة'};const offVal=e.off===undefined?'':e.off;tb.innerHTML+=`<tr><td>${e.code}</td><td>${e.name}</td><td>${dname}</td><td>${timeTxt}</td><td>${offTxt[offVal]||offVal}</td><td><button class="btn-blue" onclick="editEmp('${e.code}')">تعديل</button></td><td><button class="btn-danger" onclick="delEmp('${e.code}')">حذف</button></td></tr>`;});const sel=document.getElementById('empDept');const bulkSel=document.getElementById('bulkDept');const filterSel=document.getElementById('empFilterDept');const cur=sel.value;const curB=bulkSel.value;const curF=filterSel.value;sel.innerHTML='';bulkSel.innerHTML='<option value="">كل الإدارات</option>';filterSel.innerHTML='<option value="">كل الإدارات</option>';depts.forEach(d=>{let op=document.createElement('option');op.value=d.id;op.textContent=d.name;sel.appendChild(op);let op2=op.cloneNode(true);bulkSel.appendChild(op2);let op3=op.cloneNode(true);filterSel.appendChild(op3);});if(cur)sel.value=cur;if(curB)bulkSel.value=curB;if(curF)filterSel.value=curF;}
 let editingDeptId=null;
