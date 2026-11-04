@@ -281,7 +281,7 @@ function exportExcel(){
   days.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
  }
  const ordered=emps.slice().sort((a,b)=>String(a.code).localeCompare(String(b.code),'en',{numeric:true}));
- const timeValue=v=>{if(!v)return null;const m=String(v).match(/^(\\d{1,2}):(\\d{2})/);return m?(Number(m[1])*60+Number(m[2]))/1440:null;};
+ const timeValue=v=>{if(!v)return null;const m=String(v).match(/^([0-9]{1,2}):([0-9]{2})/);return m?(Number(m[1])*60+Number(m[2]))/1440:null;};
  const num=v=>{const n=Number(v);return Number.isFinite(n)&&n!==0?n:null;};
  const exceptionFor=(r,sch,iso)=>{
   if(r.holiday)return 'عطله رسميه';
@@ -308,6 +308,8 @@ function exportExcel(){
    const sch=getSch(emp,iso);
    const rest=!!rec.rest||isDeptRestDay(iso,sch);
    const absent=!!rec.absent||(!rec.in1&&!rec.out1&&!rec.mission&&!rest&&!rec.holiday&&!rec.permHours&&!rec.leaveStatus&&iso<=(new Date().toISOString().slice(0,10)));
+   const absentCount=absent?absenceOrdinal(emp.code,iso):0;
+   const progressivePenalty=absentCount===1?1.25:absentCount===2?1.5:absentCount===3?2:absentCount>=4?3:0;
    const unpaidLeave=(rec.leaveStatus=='unpaid'?Number(rec.leaveFraction||1):rec.leaveStatus=='half_unpaid'?Number(rec.leaveFraction||0.5):0);
    const shiftHours=(()=>{if(!sch.from||!sch.to)return 8;const a=timeValue(sch.from),b=timeValue(sch.to);if(a===null||b===null)return 8;let h=(b-a)*24;if(h<=0)h+=24;return h||8;})();
    const permDeduct=rec.permHours&&rec.permType=='deduct'?Number(rec.permHours)/shiftHours:0;
@@ -318,7 +320,7 @@ function exportExcel(){
     emp.code,emp.name||'',new Date(iso+'T12:00:00'),dept.name||emp.dept||'',
     timeValue(rec.in1),timeValue(rec.out1),rec.delay||null,rec.early||null,
     leaveDeduct?Number(leaveDeduct.toFixed(2)):null,absent?'Y':null,
-    num(rec.penaltyDays),num(rec.extra),exception||null
+    num(rec.penaltyDays)||(progressivePenalty||null),num(rec.extra),exception||null
    ];
    aoa.push(row);
   }
