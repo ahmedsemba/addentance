@@ -283,9 +283,9 @@ function exportExcel(){
  const ordered=emps.slice().sort((a,b)=>String(a.code).localeCompare(String(b.code),'en',{numeric:true}));
  const timeValue=v=>{if(!v)return null;const m=String(v).match(/^(\\d{1,2}):(\\d{2})/);return m?(Number(m[1])*60+Number(m[2]))/1440:null;};
  const num=v=>{const n=Number(v);return Number.isFinite(n)&&n!==0?n:null;};
- const exceptionFor=(r,sch)=>{
+ const exceptionFor=(r,sch,iso)=>{
   if(r.holiday)return 'عطله رسميه';
-  if(r.rest||isDeptRestDay(currentIso,sch))return 'راحة';
+  if(r.rest||isDeptRestDay(iso,sch))return 'راحة';
   if(r.mission)return 'ماموريه';
   if(r.leaveStatus){
    if(r.leaveStatus=='unpaid'||r.leaveStatus=='half_unpaid')return 'اجازه بالخصم';
@@ -301,11 +301,9 @@ function exportExcel(){
   if(Number(r.extra)>0)return Number(r.extra)>=8?'يوم اضافي':'اضافي';
   return '';
  };
- let currentIso='';
  for(const emp of ordered){
   const dept=depts.find(x=>x.id==emp.dept)||{};
   for(const iso of days){
-   currentIso=iso;
    const rec=attendance[iso+'_'+emp.code]||{};
    const sch=getSch(emp,iso);
    const rest=!!rec.rest||isDeptRestDay(iso,sch);
@@ -314,12 +312,13 @@ function exportExcel(){
    const shiftHours=(()=>{if(!sch.from||!sch.to)return 8;const a=timeValue(sch.from),b=timeValue(sch.to);if(a===null||b===null)return 8;let h=(b-a)*24;if(h<=0)h+=24;return h||8;})();
    const permDeduct=rec.permHours&&rec.permType=='deduct'?Number(rec.permHours)/shiftHours:0;
    const leaveDeduct=unpaidLeave+permDeduct;
-   const exception=exceptionFor({...rec,absent},sch);
+   let exception=exceptionFor({...rec,absent},sch,iso);
+   if(Number(rec.extra)>0&&Number(rec.extraFactor)==2)exception=(exception?exception+' / ':'')+'إضافي x2';
    const row=[
     emp.code,emp.name||'',new Date(iso+'T12:00:00'),dept.name||emp.dept||'',
     timeValue(rec.in1),timeValue(rec.out1),rec.delay||null,rec.early||null,
     leaveDeduct?Number(leaveDeduct.toFixed(2)):null,absent?'Y':null,
-    num(rec.penaltyDays),num(rec.extra)?Number(rec.extra)*((Number(rec.extraFactor)||1)):null,exception||null
+    num(rec.penaltyDays),num(rec.extra),exception||null
    ];
    aoa.push(row);
   }
