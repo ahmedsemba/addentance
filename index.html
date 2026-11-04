@@ -163,7 +163,7 @@ function saveEmpEdit(){
   if(c!=editingEmpCode){
    const oldSuffix='_'+editingEmpCode,newSuffix='_'+c,moves=[];
    for(const k of Object.keys(attendance)){if(k.endsWith(oldSuffix))moves.push([k,k.slice(0,-oldSuffix.length)+newSuffix,attendance[k]]);}
-   moves.forEach(([from,to,value])=>{if(attendance[to]&&!confirm('يوجد سجل حضور بالكود الجديد في نفس التاريخ. هل تريد دمج السجل القديم فوقه؟'))return;attendance[to]={...(attendance[to]||{}),...value};delete attendance[from];});
+   moves.forEach(([from,to,value])=>{attendance[to]={...value,...(attendance[to]||{})};delete attendance[from];});
    leaveLedger.forEach(x=>{if(x.code==editingEmpCode)x.code=c;});
    variableShifts.forEach(x=>{if(x.code==editingEmpCode)x.code=c;});
    weeklyRosters.forEach(x=>{if(x.code==editingEmpCode)x.code=c;});
