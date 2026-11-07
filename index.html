@@ -215,7 +215,71 @@ function runLeaveAccrual(){const d=accrualDate.value;if(!d)return alert('اخت�
 function renderLeaveModule(){fillModuleEmployees();const emp=emps.find(e=>e.code==leaveEmp.value);if(emp){leaveType.value=emp.leaveType||'migrant';leaveHire.value=emp.hireDate||'';}const now=new Date();const todayIso=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');if(!accrualDate.value)accrualDate.value=todayIso;const asOf=accrualDate.value||todayIso;ensureAccruals(asOf);const balDiv=document.getElementById('leaveBalances');if(balDiv){let html='<b>الأرصدة حتى '+asOf+'</b><br>';emps.forEach(e=>{const b=ledgerBalance(e.code,asOf);html+='<div>'+e.code+' - '+e.name+' ('+((e.leaveType||'migrant')=='migrant'?'مغترب':'مقيم')+'): <b>'+b.toFixed(2)+' يوم</b></div>';});balDiv.innerHTML=html;}const tb=document.querySelector('#leaveTable tbody');if(tb){tb.innerHTML='';leaveLedger.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{const e=emps.find(y=>y.code==x.code)||{};const bal=ledgerBalance(x.code,x.date);const tr=document.createElement('tr');[x.date,x.code,e.name||'',x.label||x.kind,Number(x.add||0).toFixed(2),Number(x.deduct||0).toFixed(2),bal.toFixed(2),x.note||''].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});tb.appendChild(tr);});}}
 function exportLeaveLedger(){const rows=[['التاريخ','الكود','الاسم','الحركة','إضافة','خصم','الرصيد بعد الحركة','ملاحظات']];leaveLedger.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{const e=emps.find(y=>y.code==x.code)||{};rows.push([x.date,x.code,e.name||'',x.label||x.kind,x.add||0,x.deduct||0,ledgerBalance(x.code,x.date),x.note||'']);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'حركة الإجازات');XLSX.writeFile(wb,'حركة_أرصدة_الإجازات.xlsx');}
 function downloadOxygenTemplate(){const rows=[['كود الموظف','التاريخ YYYY-MM-DD','بداية الوردية HH:MM','نهاية الوردية HH:MM','ساعات إضافي','معامل الإضافي','ملاحظات'],['467','2026-11-04','23:00','07:00','0','1','وردية ليلية']];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'ورديات');XLSX.writeFile(wb,'قالب_ورديات_الأكسجين.xlsx');}
-function importOxygenShifts(){const file=document.getElementById('oxygenShiftFile').files[0];if(!file)return alert('اختر ملف الورديات');const reader=new FileReader();reader.onload=e=>{try{let rows;if(file.name.toLowerCase().endsWith('.csv')){const t=new TextDecoder('windows-1256').decode(e.target.result);rows=t.split(/\r?\n/).map(x=>x.split(/[;,]/).map(v=>v.replace(/^"|"$/g,'').trim()));}else{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false});}let added=0,skipped=0;const normDate=v=>{const s=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);const p=s.split(/[\/.-]/);if(p.length==3){if(p[0].length==4)return p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}return '';};const normTime=v=>{const s=String(v||'').trim();const m=s.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);if(!m)return '';let h=Number(m[1]);const ap=(m[3]||'').toUpperCase();if(ap=='PM'&&h<12)h+=12;if(ap=='AM'&&h==12)h=0;return String(h).padStart(2,'0')+':'+m[2];};for(let i=1;i<rows.length;i++){const r=rows[i]||[];const code=String(r[0]||'').trim(),date=normDate(r[1]),from=normTime(r[2]),to=normTime(r[3]);const emp=emps.find(x=>x.code==code);if(!emp||!date||!from||!to){skipped++;continue;}const start=date+'T'+from;let endDate=date;if(to<=from){const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+1);endDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}const end=endDate+'T'+to;if(variableShifts.some(s=>s.code==code&&s.start==start)){skipped++;continue;}const extra=Number(r[4])||0,factor=Number(r[5])==2?2:1,note=String(r[6]||'');const hours=(new Date(end)-new Date(start))/3600000;variableShifts.push({id:'S'+Date.now()+Math.random(),code,start,end,hours,extra,factor,note});const key=date+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};attendance[key].in1=from;attendance[key].out1=to;if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}added++;}saveAll();saveExtraModules();renderShiftTable();alert('تم استيراد '+added+' وردية، وتخطي '+skipped+' صفوف بسبب نقص البيانات أو تكرارها أو عدم وجود كود الموظف.');}catch(err){alert('تعذر استيراد الملف: '+err.message);}};reader.readAsArrayBuffer(file);}
+function importOxygenShifts(){
+ const file=document.getElementById('oxygenShiftFile').files[0];if(!file)return alert('اختر ملف الورديات أو كشف الأكسجين');
+ const reader=new FileReader();
+ reader.onload=e=>{try{
+  if(file.name.toLowerCase().endsWith('.csv')){
+   const txt=new TextDecoder('windows-1256').decode(e.target.result),first=txt.split(/\r?\n/)[0]||'',delim=first.includes(';')?';':(first.includes('\t')?'\t':',');
+   const parse=line=>{const a=[];let v='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch=='"'&&line[i+1]=='"'&&q){v+='"';i++;}else if(ch=='"')q=!q;else if(ch===delim&&!q){a.push(v.trim());v='';}else v+=ch;}a.push(v.trim());return a;};
+   const rr=txt.split(/\r?\n/).filter(x=>x.trim()).map(parse);let n=0,sk=0;
+   const dt=v=>{const s=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);const p=s.split(/[\/.-]/);return p.length===3?(p[0].length===4?s.slice(0,10):p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0')):'';};
+   const tm=v=>{const m=String(v||'').match(/(\d{1,2}):(\d{2})/);return m?String(Number(m[1])).padStart(2,'0')+':'+m[2]:'';};
+   for(let i=1;i<rr.length;i++){const a=rr[i],code=String(a[0]||'').trim(),date=dt(a[1]),from=tm(a[2]),to=tm(a[3]),emp=emps.find(x=>String(x.code)===code);if(!emp||!date||!from||!to){sk++;continue;}const start=date+'T'+from;let ed=date;if(to<=from){const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+1);ed=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}const end=ed+'T'+to;if(variableShifts.some(x=>x.code===code&&x.start===start)){sk++;continue;}const hrs=(new Date(end)-new Date(start))/3600000,extra=Number(a[4])||0,factor=Number(a[5])===2?2:1;variableShifts.push({id:'S'+Date.now()+Math.random(),code,start,end,hours:hrs,extra,factor,note:String(a[6]||'')});const key=date+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};attendance[key].in1=from;attendance[key].out1=to;if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}n++;}
+   saveAll();saveExtraModules();renderShiftTable();renderDaily();alert('تم استيراد '+n+' وردية من CSV، وتخطي '+sk+' صفوف.');return;
+  }
+  const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+  const norm=s=>String(s||'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()]/g,'');
+  const normDate=v=>{if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');if(typeof v==='number'&&v>10000){const z=XLSX.SSF.parse_date_code(v);return z?z.y+'-'+String(z.m).padStart(2,'0')+'-'+String(z.d).padStart(2,'0'):'';}const s=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);const p=s.split(/[\/.-]/);if(p.length==3){if(p[0].length==4)return p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}return '';};
+  const normTime=v=>{if(v instanceof Date&&!isNaN(v))return String(v.getHours()).padStart(2,'0')+':'+String(v.getMinutes()).padStart(2,'0');if(typeof v==='number'&&v>=0&&v<1){const m=Math.round(v*1440);return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}const s=String(v||'').trim();const m=s.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);if(!m)return '';let h=Number(m[1]);if((m[3]||'').toUpperCase()==='PM'&&h<12)h+=12;if((m[3]||'').toUpperCase()==='AM'&&h===12)h=0;return String(h).padStart(2,'0')+':'+m[2];};
+  const duration=v=>{if(v===null||v===undefined||v==='')return null;if(typeof v==='number')return v>=0&&v<1?v*24:v;const s=String(v).trim();const m=s.match(/^(\d+):(\d{2})(?::(\d{2}))?$/);if(m)return Number(m[1])+Number(m[2])/60+Number(m[3]||0)/3600;const n=Number(s);return Number.isFinite(n)?n:null;};
+  const deptFor=name=>{if(!name)return '';let d=depts.find(x=>norm(x.name)===norm(name));if(!d){d={id:'d'+Date.now()+Math.random().toString(36).slice(2,6),name:name,from:'08:00',to:'16:00',off:'Friday'};depts.push(d);}return d.id;};
+  let totalAdded=0,totalSkipped=0,mode='ورديات';
+  for(const sheetName of wb.SheetNames){
+   const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,raw:true,defval:''});if(!rows.length)continue;
+   let hr=-1;for(let i=0;i<Math.min(rows.length,12);i++){const h=(rows[i]||[]).map(norm);if(h.includes('الكود')&&h.includes('اليوم')&&h.includes('الاسم')){hr=i;break;}}
+   if(hr>=0){
+    mode='كشف حضور الأكسجين';
+    const heads=(rows[hr]||[]).map(norm),find=names=>heads.findIndex(h=>names.some(n=>h===norm(n)));
+    const ix={dept:find(['الاداره']),code:find(['الكود']),name:find(['الاسم']),date:find(['اليوم']),in:find(['الحضور']),out:find(['الانصراف']),status:find(['عدد ايام الحضور']),leave:find(['اجازه']),unpaid:find(['اجازه بالخصم']),work:find(['اجمالي ساعات']),delay:find(['التأخير']),extra:find(['اضافي ساعات']),penalty:find(['جزاء بالايام'])};
+    const today=new Date();const todayIso=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+    for(let i=hr+1;i<rows.length;i++){
+     const r=rows[i]||[],code=String(r[ix.code]||'').trim(),name=String(r[ix.name]||'').trim(),iso=normDate(r[ix.date]);if(!code||!iso||!/^\d+$/.test(code)){totalSkipped++;continue;}
+     let emp=emps.find(x=>String(x.code)===code);if(!emp){emp={code,name:name||code,dept:depts[0]?.id||'',from:'08:00',to:'16:00'};emps.push(emp);}else if(name)emp.name=name;
+     const dn=ix.dept>=0?String(r[ix.dept]||'').trim():'مصنع الاكسجين';if(dn)emp.dept=deptFor(dn);
+     const key=iso+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};
+     const rec=attendance[key],tin=normTime(r[ix.in]),tout=normTime(r[ix.out]),st=ix.status>=0?String(r[ix.status]||'').trim():'';
+     if(tin)rec.in1=tin;if(tout)rec.out1=tout;
+     const stn=norm(st);if(stn.includes('راحه'))rec.rest=true;else if(stn.includes('غياب')){rec.absent=true;rec.absent_manual=true;}else if(stn.includes('ماموريه')||stn.includes('السويس')||stn.includes('اسكندريه')){rec.mission=true;rec.missionPlace=st;}else if(stn.includes('عطله'))rec.holiday=true;
+     const lv=ix.leave>=0?duration(r[ix.leave]):null,un=ix.unpaid>=0?duration(r[ix.unpaid]):null;
+     if(un&&un>0){rec.leaveStatus='unpaid';rec.leaveFraction=un;}else if(lv&&lv>0){rec.leaveStatus='paid';rec.leaveFraction=lv;}
+     const wh=ix.work>=0?duration(r[ix.work]):null;if(wh!==null)rec.workHours=wh;
+     const dl=ix.delay>=0?duration(r[ix.delay]):null;if(dl!==null&&dl>0)rec.delay=dl;
+     const ex=ix.extra>=0?duration(r[ix.extra]):null;if(ex!==null&&ex>0){rec.extra=ex;rec.extraFactor=1;}
+     const pn=ix.penalty>=0?Number(r[ix.penalty]):0;if(Number.isFinite(pn)&&pn>0)rec.penaltyDays=pn;
+     if(!rec.in1&&!rec.out1&&!rec.rest&&!rec.holiday&&!rec.mission&&!rec.leaveStatus&&iso<=todayIso){rec.absent=true;rec.absent_manual=true;}
+     totalAdded++;
+    }
+   }else{
+    const first=rows[0]||[];if(first.length<4)continue;
+    for(let i=1;i<rows.length;i++){const r=rows[i]||[],code=String(r[0]||'').trim(),iso=normDate(r[1]),from=normTime(r[2]),to=normTime(r[3]);if(!code||!iso||!from||!to){totalSkipped++;continue;}
+     const emp=emps.find(x=>String(x.code)===code);if(!emp){totalSkipped++;continue;}
+     const start=iso+'T'+from;let endDate=iso;if(to<=from){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+1);endDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+     const end=endDate+'T'+to;if(variableShifts.some(s=>s.code==code&&s.start==start)){totalSkipped++;continue;}
+     const extra=Number(r[4])||0,factor=Number(r[5])==2?2:1,note=String(r[6]||''),hrs=(new Date(end)-new Date(start))/3600000;
+     variableShifts.push({id:'S'+Date.now()+Math.random(),code,start,end,hours:hrs,extra,factor,note});
+     const key=iso+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};
+     attendance[key].in1=from;attendance[key].out1=to;if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}totalAdded++;
+    }
+   }
+  }
+  saveAll();saveExtraModules();renderDepts();renderEmps();renderDaily();renderReportDepts();renderShiftTable();
+  alert('تم استيراد '+totalAdded+' سجل من '+mode+'، وتخطي '+totalSkipped+' صفوف غير صالحة أو غير مرتبطة بموظف.');
+ }catch(err){alert('تعذر استيراد الملف: '+err.message);}
+ };
+ reader.readAsArrayBuffer(file);
+}
+
 function addVariableShift(){const emp=emps.find(e=>e.code==shiftEmp.value),start=shiftStart.value,end=shiftEnd.value;if(!emp||!start||!end||new Date(end)<=new Date(start))return alert('راجع الموظف ووقت البداية والنهاية');const date=start.slice(0,10),key=date+'_'+emp.code;const oldRec=attendance[key];if(oldRec&&(oldRec.in1||oldRec.out1)&&!confirm('يوجد حضور مسجل لهذا الموظف في نفس اليوم. هل تريد استبدال مواعيد الحضور والانصراف بهذة الوردية؟'))return;const hours=(new Date(end)-new Date(start))/3600000;const extra=Number(shiftExtra.value)||0;const factor=Number(shiftFactor.value)||1;variableShifts.push({id:'S'+Date.now()+Math.random(),code:emp.code,start,end,hours,extra,factor,note:shiftNote.value||''});if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};attendance[key].in1=start.slice(11,16);attendance[key].out1=end.slice(11,16);if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}saveAll();saveExtraModules();renderShiftTable();alert('تم حفظ الوردية وربطها بيومية الموظف بتاريخ بداية الوردية.');}
 function syncVariableShiftsToAttendance(){let changed=false;variableShifts.forEach(s=>{if(!s.start||!s.end||!s.code)return;const date=s.start.slice(0,10),key=date+'_'+s.code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};const r=attendance[key];if(!r.in1){r.in1=s.start.slice(11,16);changed=true;}if(!r.out1){r.out1=s.end.slice(11,16);changed=true;}if(Number(s.extra)>0&&!r.extra){r.extra=Number(s.extra);r.extraFactor=Number(s.factor)||1;changed=true;}});if(changed)saveAll();}
 function renderShiftTable(){fillModuleEmployees();const tb=document.querySelector('#shiftTable tbody');if(!tb)return;tb.innerHTML='';variableShifts.slice().sort((a,b)=>a.start.localeCompare(b.start)).forEach(s=>{const e=emps.find(x=>x.code==s.code)||{};const tr=document.createElement('tr');[s.start.replace('T',' '),s.end.replace('T',' '),s.code,e.name||'',Number(s.hours).toFixed(2),s.extra,s.factor,s.note||''].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});const td=document.createElement('td');const b=document.createElement('button');b.className='btn-danger';b.textContent='حذف';b.onclick=()=>{if(confirm('حذف الوردية؟')){variableShifts=variableShifts.filter(x=>x.id!=s.id);saveExtraModules();renderShiftTable();}};td.appendChild(b);tr.appendChild(td);tb.appendChild(tr);});}
@@ -308,117 +372,6 @@ async function importZK(){
   saveAll();renderDepts();renderEmps();renderDaily();renderReportDepts();
   document.getElementById('importMsg').textContent='تم استيراد '+updated+' سجل حضور - موظفين جدد '+added+' - صفوف تم تجاهلها '+skipped;
  }catch(err){alert('تعذر استيراد ملف البصمة: '+err.message);}
-}function importOxygenShifts(){
- const file=document.getElementById('oxygenShiftFile').files[0];if(!file)return alert('اختر ملف الورديات أو كشف الأكسجين');
- const reader=new FileReader();
- reader.onload=e=>{try{
-  if(file.name.toLowerCase().endsWith('.csv')){
-   const txt=new TextDecoder('windows-1256').decode(e.target.result),first=txt.split(/\r?\n/)[0]||'',delim=first.includes(';')?';':(first.includes('\t')?'\t':',');
-   const parse=line=>{const a=[];let v='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch=='"'&&line[i+1]=='"'&&q){v+='"';i++;}else if(ch=='"')q=!q;else if(ch===delim&&!q){a.push(v.trim());v='';}else v+=ch;}a.push(v.trim());return a;};
-   const rr=txt.split(/\r?\n/).filter(x=>x.trim()).map(parse);let n=0,sk=0;
-   const dt=v=>{const s=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);const p=s.split(/[\/.-]/);return p.length===3?(p[0].length===4?s.slice(0,10):p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0')):'';};
-   const tm=v=>{const m=String(v||'').match(/(\d{1,2}):(\d{2})/);return m?String(Number(m[1])).padStart(2,'0')+':'+m[2]:'';};
-   for(let i=1;i<rr.length;i++){const a=rr[i],code=String(a[0]||'').trim(),date=dt(a[1]),from=tm(a[2]),to=tm(a[3]),emp=emps.find(x=>String(x.code)===code);if(!emp||!date||!from||!to){sk++;continue;}const start=date+'T'+from;let ed=date;if(to<=from){const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+1);ed=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}const end=ed+'T'+to;if(variableShifts.some(x=>x.code===code&&x.start===start)){sk++;continue;}const hrs=(new Date(end)-new Date(start))/3600000,extra=Number(a[4])||0,factor=Number(a[5])===2?2:1;variableShifts.push({id:'S'+Date.now()+Math.random(),code,start,end,hours:hrs,extra,factor,note:String(a[6]||'')});const key=date+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};attendance[key].in1=from;attendance[key].out1=to;if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}n++;}
-   saveAll();saveExtraModules();renderShiftTable();renderDaily();alert('تم استيراد '+n+' وردية من CSV، وتخطي '+sk+' صفوف.');return;
-  }
-  const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
-  const norm=s=>String(s||'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()]/g,'');
-  const normDate=v=>{if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');if(typeof v==='number'&&v>10000){const z=XLSX.SSF.parse_date_code(v);return z?z.y+'-'+String(z.m).padStart(2,'0')+'-'+String(z.d).padStart(2,'0'):'';}const s=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);const p=s.split(/[\/.-]/);if(p.length==3){if(p[0].length==4)return p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}return '';};
-  const normTime=v=>{if(v instanceof Date&&!isNaN(v))return String(v.getHours()).padStart(2,'0')+':'+String(v.getMinutes()).padStart(2,'0');if(typeof v==='number'&&v>=0&&v<1){const m=Math.round(v*1440);return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}const s=String(v||'').trim();const m=s.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);if(!m)return '';let h=Number(m[1]);if((m[3]||'').toUpperCase()==='PM'&&h<12)h+=12;if((m[3]||'').toUpperCase()==='AM'&&h===12)h=0;return String(h).padStart(2,'0')+':'+m[2];};
-  const duration=v=>{if(v===null||v===undefined||v==='')return null;if(typeof v==='number')return v>=0&&v<1?v*24:v;const s=String(v).trim();const m=s.match(/^(\d+):(\d{2})(?::(\d{2}))?$/);if(m)return Number(m[1])+Number(m[2])/60+Number(m[3]||0)/3600;const n=Number(s);return Number.isFinite(n)?n:null;};
-  const deptFor=name=>{if(!name)return '';let d=depts.find(x=>norm(x.name)===norm(name));if(!d){d={id:'d'+Date.now()+Math.random().toString(36).slice(2,6),name:name,from:'08:00',to:'16:00',off:'Friday'};depts.push(d);}return d.id;};
-  let totalAdded=0,totalSkipped=0,mode='ورديات';
-  for(const sheetName of wb.SheetNames){
-   const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,raw:true,defval:''});if(!rows.length)continue;
-   let hr=-1;for(let i=0;i<Math.min(rows.length,12);i++){const h=(rows[i]||[]).map(norm);if(h.includes('الكود')&&h.includes('اليوم')&&h.includes('الاسم')){hr=i;break;}}
-   if(hr>=0){
-    mode='كشف حضور الأكسجين';
-    const heads=(rows[hr]||[]).map(norm),find=names=>heads.findIndex(h=>names.some(n=>h===norm(n)));
-    const ix={dept:find(['الاداره']),code:find(['الكود']),name:find(['الاسم']),date:find(['اليوم']),in:find(['الحضور']),out:find(['الانصراف']),status:find(['عدد ايام الحضور']),leave:find(['اجازه']),unpaid:find(['اجازه بالخصم']),work:find(['اجمالي ساعات']),delay:find(['التأخير']),extra:find(['اضافي ساعات']),penalty:find(['جزاء بالايام'])};
-    const today=new Date();const todayIso=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-    for(let i=hr+1;i<rows.length;i++){
-     const r=rows[i]||[],code=String(r[ix.code]||'').trim(),name=String(r[ix.name]||'').trim(),iso=normDate(r[ix.date]);if(!code||!iso||!/^\d+$/.test(code)){totalSkipped++;continue;}
-     let emp=emps.find(x=>String(x.code)===code);if(!emp){emp={code,name:name||code,dept:depts[0]?.id||'',from:'08:00',to:'16:00'};emps.push(emp);}else if(name)emp.name=name;
-     const dn=ix.dept>=0?String(r[ix.dept]||'').trim():'مصنع الاكسجين';if(dn)emp.dept=deptFor(dn);
-     const key=iso+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};
-     const rec=attendance[key],tin=normTime(r[ix.in]),tout=normTime(r[ix.out]),st=ix.status>=0?String(r[ix.status]||'').trim():'';
-     if(tin)rec.in1=tin;if(tout)rec.out1=tout;
-     const stn=norm(st);if(stn.includes('راحه'))rec.rest=true;else if(stn.includes('غياب')){rec.absent=true;rec.absent_manual=true;}else if(stn.includes('ماموريه')||stn.includes('السويس')||stn.includes('اسكندريه')){rec.mission=true;rec.missionPlace=st;}else if(stn.includes('عطله'))rec.holiday=true;
-     const lv=ix.leave>=0?duration(r[ix.leave]):null,un=ix.unpaid>=0?duration(r[ix.unpaid]):null;
-     if(un&&un>0){rec.leaveStatus='unpaid';rec.leaveFraction=un;}else if(lv&&lv>0){rec.leaveStatus='paid';rec.leaveFraction=lv;}
-     const wh=ix.work>=0?duration(r[ix.work]):null;if(wh!==null)rec.workHours=wh;
-     const dl=ix.delay>=0?duration(r[ix.delay]):null;if(dl!==null&&dl>0)rec.delay=dl;
-     const ex=ix.extra>=0?duration(r[ix.extra]):null;if(ex!==null&&ex>0){rec.extra=ex;rec.extraFactor=1;}
-     const pn=ix.penalty>=0?Number(r[ix.penalty]):0;if(Number.isFinite(pn)&&pn>0)rec.penaltyDays=pn;
-     if(!rec.in1&&!rec.out1&&!rec.rest&&!rec.holiday&&!rec.mission&&!rec.leaveStatus&&iso<=todayIso){rec.absent=true;rec.absent_manual=true;}
-     totalAdded++;
-    }
-   }else{
-    const first=rows[0]||[];if(first.length<4)continue;
-    for(let i=1;i<rows.length;i++){const r=rows[i]||[],code=String(r[0]||'').trim(),iso=normDate(r[1]),from=normTime(r[2]),to=normTime(r[3]);if(!code||!iso||!from||!to){totalSkipped++;continue;}
-     const emp=emps.find(x=>String(x.code)===code);if(!emp){totalSkipped++;continue;}
-     const start=iso+'T'+from;let endDate=iso;if(to<=from){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+1);endDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-     const end=endDate+'T'+to;if(variableShifts.some(s=>s.code==code&&s.start==start)){totalSkipped++;continue;}
-     const extra=Number(r[4])||0,factor=Number(r[5])==2?2:1,note=String(r[6]||''),hrs=(new Date(end)-new Date(start))/3600000;
-     variableShifts.push({id:'S'+Date.now()+Math.random(),code,start,end,hours:hrs,extra,factor,note});
-     const key=iso+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};
-     attendance[key].in1=from;attendance[key].out1=to;if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}totalAdded++;
-    }
-   }
-  }
-  saveAll();saveExtraModules();renderDepts();renderEmps();renderDaily();renderReportDepts();renderShiftTable();
-  alert('تم استيراد '+totalAdded+' سجل من '+mode+'، وتخطي '+totalSkipped+' صفوف غير صالحة أو غير مرتبطة بموظف.');
- }catch(err){alert('تعذر استيراد الملف: '+err.message);}
- };
- reader.readAsArrayBuffer(file);
-}
-function addVariableShift(){const emp=emps.find(e=>e.code==shiftEmp.value),start=shiftStart.value,end=shiftEnd.value;if(!emp||!start||!end||new Date(end)<=new Date(start))return alert('راجع الموظف ووقت البداية والنهاية');const date=start.slice(0,10),key=date+'_'+emp.code;const oldRec=attendance[key];if(oldRec&&(oldRec.in1||oldRec.out1)&&!confirm('يوجد حضور مسجل لهذا الموظف في نفس اليوم. هل تريد استبدال مواعيد الحضور والانصراف بهذة الوردية؟'))return;const hours=(new Date(end)-new Date(start))/3600000;const extra=Number(shiftExtra.value)||0;const factor=Number(shiftFactor.value)||1;variableShifts.push({id:'S'+Date.now()+Math.random(),code:emp.code,start,end,hours,extra,factor,note:shiftNote.value||''});if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};attendance[key].in1=start.slice(11,16);attendance[key].out1=end.slice(11,16);if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}saveAll();saveExtraModules();renderShiftTable();alert('تم حفظ الوردية وربطها بيومية الموظف بتاريخ بداية الوردية.');}
-function syncVariableShiftsToAttendance(){let changed=false;variableShifts.forEach(s=>{if(!s.start||!s.end||!s.code)return;const date=s.start.slice(0,10),key=date+'_'+s.code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};const r=attendance[key];if(!r.in1){r.in1=s.start.slice(11,16);changed=true;}if(!r.out1){r.out1=s.end.slice(11,16);changed=true;}if(Number(s.extra)>0&&!r.extra){r.extra=Number(s.extra);r.extraFactor=Number(s.factor)||1;changed=true;}});if(changed)saveAll();}
-function renderShiftTable(){fillModuleEmployees();const tb=document.querySelector('#shiftTable tbody');if(!tb)return;tb.innerHTML='';variableShifts.slice().sort((a,b)=>a.start.localeCompare(b.start)).forEach(s=>{const e=emps.find(x=>x.code==s.code)||{};const tr=document.createElement('tr');[s.start.replace('T',' '),s.end.replace('T',' '),s.code,e.name||'',Number(s.hours).toFixed(2),s.extra,s.factor,s.note||''].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});const td=document.createElement('td');const b=document.createElement('button');b.className='btn-danger';b.textContent='حذف';b.onclick=()=>{if(confirm('حذف الوردية؟')){variableShifts=variableShifts.filter(x=>x.id!=s.id);saveExtraModules();renderShiftTable();}};td.appendChild(b);tr.appendChild(td);tb.appendChild(tr);});}
-function exportOxygenEmployeeSheets(){const from=expFrom.value,to=expTo.value;const list=variableShifts.filter(s=>(!from||s.start.slice(0,10)>=from)&&(!to||s.start.slice(0,10)<=to)).sort((a,b)=>a.start.localeCompare(b.start));if(!list.length)return alert('لا توجد ورديات في الفترة المحددة');const wb=XLSX.utils.book_new();const summary=[['الكود','الاسم','بداية الوردية','نهاية الوردية','ساعات العمل','إضافي','معامل','ملاحظات']];list.forEach(s=>{const e=emps.find(x=>x.code==s.code)||{};summary.push([s.code,e.name||'',s.start,s.end,s.hours,s.extra,s.factor,s.note||'']);});XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summary),'ملخص');const codes=[...new Set(list.map(s=>s.code))];codes.forEach((code,i)=>{const emp=emps.find(e=>e.code==code)||{};const rows=[['التاريخ','بداية الوردية','نهاية الوردية','ساعات العمل','إضافي','معامل','ملاحظات']];list.filter(s=>s.code==code).forEach(s=>rows.push([s.start.slice(0,10),s.start,s.end,s.hours,s.extra,s.factor,s.note||'']));let name=(String(code)+' '+String(emp.name||'')).replace(/[\\/?*\[\]:]/g,' ').slice(0,25).trim()||('موظف '+(i+1));if(wb.SheetNames.includes(name))name=(name.slice(0,20)+' '+(i+1)).slice(0,31);XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),name);});XLSX.writeFile(wb,'كشوف_ورديات_الأكسجين_لكل_موظف.xlsx');}
-function exportVariableShifts(){const rows=[['بداية الوردية','نهاية الوردية','الكود','الاسم','ساعات العمل','إضافي','معامل','ملاحظات']];variableShifts.forEach(s=>{const e=emps.find(x=>x.code==s.code)||{};rows.push([s.start,s.end,s.code,e.name||'',s.hours,s.extra,s.factor,s.note||'']);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'ورديات الأكسجين');XLSX.writeFile(wb,'ورديات_مصنع_الأكسجين.xlsx');}
-
-renderDepts();renderEmps();document.getElementById('empImportMsg').textContent=`تم: إدارات ${addedDept} - موظفين ${addedEmp} - حضور ${updatedAtt}`;}catch(err){alert('خطأ: '+err.message);}};reader.readAsArrayBuffer(file);}
-function exportFullBackup(){
- const payload={version:3,createdAt:new Date().toISOString(),depts,emps,attendance,leaveLedger,variableShifts,weeklyRosters};
- const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
- const url=URL.createObjectURL(blob);const a=document.createElement('a');
- a.href=url;a.download='نسخة_احتياطية_الحضور_'+new Date().toISOString().slice(0,10)+'.json';
- document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
-}
-async function importFullBackup(){
- const file=document.getElementById('backupFile').files[0];if(!file)return alert('اختر ملف النسخة الاحتياطية');
- if(!confirm('سيتم استبدال بيانات الموظفين والإدارات والحضور الحالية بمحتويات النسخة. هل تريد المتابعة؟'))return;
- try{
-  const data=JSON.parse(await file.text());
-  if(!data||!Array.isArray(data.emps)||!Array.isArray(data.depts)||!data.attendance||typeof data.attendance!=='object')throw new Error('صيغة النسخة الاحتياطية غير صحيحة');
-  emps=data.emps;depts=data.depts;attendance=data.attendance;leaveLedger=Array.isArray(data.leaveLedger)?data.leaveLedger:[];variableShifts=Array.isArray(data.variableShifts)?data.variableShifts:[];weeklyRosters=Array.isArray(data.weeklyRosters)?data.weeklyRosters:[];saveAll();saveExtraModules();
-  renderDepts();renderEmps();syncVariableShiftsToAttendance();renderDaily();renderReportDepts();renderLeaveModule();renderRosterTable();renderShiftTable();
-  alert('تمت استعادة البيانات بنجاح');
- }catch(err){alert('تعذر استعادة النسخة: '+err.message);}
-}
-function downloadTemplate(){const rows=[['كود','اسم','تاريخ (dd/mm/yyyy)','إدارة','حضور (HH:MM)','انصراف (HH:MM)'],['467','احمد سمبا','01/11/2026','التنكات','08:05','16:30']];const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'قالب');XLSX.writeFile(wb,'قالب_الموظفين_بالإدارات.xlsx');}
-async function importZK(){
- const file=document.getElementById('zkFile').files[0];if(!file)return alert('اختر ملف');
- const buf=await file.arrayBuffer();let txt;try{txt=new TextDecoder('windows-1256').decode(buf);}catch{txt=new TextDecoder().decode(buf);}
- const first=txt.split(/\r?\n/)[0]||'';const delim=first.includes(';')?';':(first.includes('\t')?'\t':',');
- const splitLine=line=>{const out=[];let cur='',quoted=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch=='"'&&line[i+1]=='"'&&quoted){cur+='"';i++;}else if(ch=='"'){quoted=!quoted;}else if(ch==delim&&!quoted){out.push(cur.trim());cur='';}else cur+=ch;}out.push(cur.trim());return out;};
- const rows=txt.split(/\r?\n/).filter(x=>x.trim()).map(splitLine);if(rows.length<2)return alert('الملف لا يحتوي على بيانات');
- const heads=rows[0].map(x=>String(x||'').toLowerCase().replace(/[\s_\-]/g,''));const idx=aliases=>heads.findIndex(h=>aliases.some(a=>h.includes(a)));
- const find=(aliases,fallback)=>{const n=idx(aliases);return n>=0?n:fallback;};
- const ix={code:find(['كود','رقمالموظف','employeeid','enrollno','userid','badge'],0),name:find(['اسمالموظف','name','employeename'],1),date:find(['التاريخ','date','workday'],2),in:find(['وقتالحضور','حضور','checkin','firstin','clockin'],6),out:find(['وقتالانصراف','انصراف','checkout','lastout','clockout'],7),delay:find(['تأخير','late','delay'],-1),early:find(['مبكر','انصرافمبكر','early'],-1),noSign:find(['عدمتوقيع','nopunch','nosign'],-1),extra:find(['اضافي','overtime','extrahours','ot'],-1),factor:find(['معامل','factor','overtimecategory'],-1),absent:find(['غياب','absent'],-1),mission:find(['مأمورية','mission'],-1),missionPlace:find(['موقعالمأمورية','missionplace','location'],-1),rest:find(['راحةاسبوعية','راحة','weeklyrest','restday'],-1),holiday:find(['عطلةرسمية','اجازةرسمية','holiday'],-1),perm:find(['اذن','permission'],-1),permType:find(['نوعالاذن','permissiontype','permissionstatus'],-1),dept:find(['الادارة','department','dept'],-1),workHours:find(['ساعاتالعمل','workhours','workedhours'],-1)};
- const val=(r,k)=>ix[k]>=0?String(r[ix[k]]||'').trim():'';
- const dateISO=s=>{if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);const p=s.split(/[\/.-]/);if(p.length==3){if(p[0].length==4)return p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}return '';};
- const yes=s=>/^(1|true|yes|y|نعم|غياب|غائب|راحة|عطلة|عطلةرسمية)$/i.test(s)||/مأمورية/.test(s);
- let added=0,updated=0;
- for(let i=1;i<rows.length;i++){const r=rows[i];const code=val(r,'code'),name=val(r,'name'),iso=dateISO(val(r,'date'));if(!code||!iso)continue;
- let emp=emps.find(e=>e.code==code);if(!emp){emp={code,name:name||code,dept:depts[0]?.id||'',from:'',to:''};emps.push(emp);added++;}else if(name)emp.name=name;
- const dn=val(r,'dept');if(dn){let dep=depts.find(d=>String(d.name).trim().toLowerCase()==dn.toLowerCase());if(!dep){dep={id:'d'+Date.now()+Math.random().toString(36).slice(2,5),name:dn,from:'09:00',to:'17:00',off:'Friday'};depts.push(dep);}emp.dept=dep.id;}
- const key=iso+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};
- const rec=attendance[key],tin=val(r,'in'),tout=val(r,'out');if(tin)rec.in1=tin.slice(0,5);if(tout)rec.out1=tout.slice(0,5);
- if(ix.delay>=0)rec.delay=val(r,'delay');if(ix.early>=0)rec.early=val(r,'early');if(ix.noSign>=0)rec.noSign=val(r,'noSign');if(ix.extra>=0){const ex=val(r,'extra');rec.extra=Number(ex)||((ex.match(/^(\\d+):(\\d{2})$/))?Number(ex.split(':')[0])+Number(ex.split(':')[1])/60:0);}if(ix.factor>=0)rec.extraFactor=/2|x2/i.test(val(r,'factor'))?2:1;if(ix.absent>=0){rec.absent=yes(val(r,'absent'))||/غياب|غائب/.test(val(r,'absent'));rec.absent_manual=true;}if(ix.mission>=0)rec.mission=yes(val(r,'mission'));if(ix.missionPlace>=0)rec.missionPlace=val(r,'missionPlace');if(ix.rest>=0){const rv=val(r,'rest');const dayMap={'السبت':'Saturday','الأحد':'Sunday','الاحد':'Sunday','الإثنين':'Monday','الاثنين':'Monday','الثلاثاء':'Tuesday','الأربعاء':'Wednesday','الاربعاء':'Wednesday','الخميس':'Thursday','الجمعة':'Friday'};rec.rest=yes(rv)||dayMap[rv]===getDayName(iso)||rv.toLowerCase()==getDayName(iso).toLowerCase();}if(ix.holiday>=0)rec.holiday=yes(val(r,'holiday'))||/عطلة|رسمية/.test(val(r,'holiday'));if(ix.perm>=0&&val(r,'perm')){rec.permHours=val(r,'perm').replace(/[^0-9.]/g,'');const pt=val(r,'permType');rec.permType=pt?(/خصم|deduct/i.test(pt)?'deduct':'free'):(freePermissionCount(code,iso,key)<2?'free':'deduct');}if(ix.workHours>=0)rec.workHours=val(r,'workHours');updated++;
- }
- saveAll();renderDepts();renderEmps();renderDaily();document.getElementById('importMsg').textContent='تم تحديث '+updated+' يوم حضور - موظفين جدد '+added;
 }
 
 let lastReportData=[];
