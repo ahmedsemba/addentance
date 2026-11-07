@@ -283,7 +283,50 @@ function importOxygenShifts(){
 function addVariableShift(){const emp=emps.find(e=>e.code==shiftEmp.value),start=shiftStart.value,end=shiftEnd.value;if(!emp||!start||!end||new Date(end)<=new Date(start))return alert('راجع الموظف ووقت البداية والنهاية');const date=start.slice(0,10),key=date+'_'+emp.code;const oldRec=attendance[key];if(oldRec&&(oldRec.in1||oldRec.out1)&&!confirm('يوجد حضور مسجل لهذا الموظف في نفس اليوم. هل تريد استبدال مواعيد الحضور والانصراف بهذة الوردية؟'))return;const hours=(new Date(end)-new Date(start))/3600000;const extra=Number(shiftExtra.value)||0;const factor=Number(shiftFactor.value)||1;variableShifts.push({id:'S'+Date.now()+Math.random(),code:emp.code,start,end,hours,extra,factor,note:shiftNote.value||''});if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};attendance[key].in1=start.slice(11,16);attendance[key].out1=end.slice(11,16);if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}saveAll();saveExtraModules();renderShiftTable();alert('تم حفظ الوردية وربطها بيومية الموظف بتاريخ بداية الوردية.');}
 function syncVariableShiftsToAttendance(){let changed=false;variableShifts.forEach(s=>{if(!s.start||!s.end||!s.code)return;const date=s.start.slice(0,10),key=date+'_'+s.code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};const r=attendance[key];if(!r.in1){r.in1=s.start.slice(11,16);changed=true;}if(!r.out1){r.out1=s.end.slice(11,16);changed=true;}if(Number(s.extra)>0&&!r.extra){r.extra=Number(s.extra);r.extraFactor=Number(s.factor)||1;changed=true;}});if(changed)saveAll();}
 function renderShiftTable(){fillModuleEmployees();const tb=document.querySelector('#shiftTable tbody');if(!tb)return;tb.innerHTML='';variableShifts.slice().sort((a,b)=>a.start.localeCompare(b.start)).forEach(s=>{const e=emps.find(x=>x.code==s.code)||{};const tr=document.createElement('tr');[s.start.replace('T',' '),s.end.replace('T',' '),s.code,e.name||'',Number(s.hours).toFixed(2),s.extra,s.factor,s.note||''].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});const td=document.createElement('td');const b=document.createElement('button');b.className='btn-danger';b.textContent='حذف';b.onclick=()=>{if(confirm('حذف الوردية؟')){variableShifts=variableShifts.filter(x=>x.id!=s.id);saveExtraModules();renderShiftTable();}};td.appendChild(b);tr.appendChild(td);tb.appendChild(tr);});}
-function exportOxygenEmployeeSheets(){const from=expFrom.value,to=expTo.value;const list=variableShifts.filter(s=>(!from||s.start.slice(0,10)>=from)&&(!to||s.start.slice(0,10)<=to)).sort((a,b)=>a.start.localeCompare(b.start));if(!list.length)return alert('لا توجد ورديات في الفترة المحددة');const wb=XLSX.utils.book_new();const summary=[['الكود','الاسم','بداية الوردية','نهاية الوردية','ساعات العمل','إضافي','معامل','ملاحظات']];list.forEach(s=>{const e=emps.find(x=>x.code==s.code)||{};summary.push([s.code,e.name||'',s.start,s.end,s.hours,s.extra,s.factor,s.note||'']);});XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summary),'ملخص');const codes=[...new Set(list.map(s=>s.code))];codes.forEach((code,i)=>{const emp=emps.find(e=>e.code==code)||{};const rows=[['التاريخ','بداية الوردية','نهاية الوردية','ساعات العمل','إضافي','معامل','ملاحظات']];list.filter(s=>s.code==code).forEach(s=>rows.push([s.start.slice(0,10),s.start,s.end,s.hours,s.extra,s.factor,s.note||'']));let name=(String(code)+' '+String(emp.name||'')).replace(/[\\/?*\[\]:]/g,' ').slice(0,25).trim()||('موظف '+(i+1));if(wb.SheetNames.includes(name))name=(name.slice(0,20)+' '+(i+1)).slice(0,31);XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),name);});XLSX.writeFile(wb,'كشوف_ورديات_الأكسجين_لكل_موظف.xlsx');}
+function exportOxygenEmployeeSheets(){
+ const from=expFrom.value,to=expTo.value;if(!from||!to||from>to)return alert('اختار فترة صحيحة');
+ const norm=s=>String(s||'').toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-]/g,'');
+ const isOxygen=emp=>{const d=depts.find(x=>x.id==emp.dept)||{};return norm(d.name).includes('مصنعالاكسجين');};
+ const list=emps.filter(isOxygen).sort((a,b)=>String(a.code).localeCompare(String(b.code),'en',{numeric:true}));
+ if(!list.length)return alert('لا يوجد موظفون مسجلون في إدارة مصنع الأكسجين');
+ const timeMins=v=>{const m=String(v||'').match(/^(\d{1,2}):(\d{2})/);return m?Number(m[1])*60+Number(m[2]):null;};
+ const dur=v=>{if(v===null||v===undefined||v==='')return 0;if(typeof v==='number')return v;const m=String(v).trim().match(/^(\d+):(\d{2})(?::(\d{2}))?$/);if(m)return Number(m[1])+Number(m[2])/60+Number(m[3]||0)/3600;const n=Number(v);return Number.isFinite(n)?n:0;};
+ const hoursBetween=(a,b)=>{const x=timeMins(a),y=timeMins(b);if(x===null||y===null)return 0;let n=y-x;if(n<=0)n+=1440;return n/60;};
+ const days=[];for(let d=new Date(from+'T12:00:00');d<=new Date(to+'T12:00:00');d.setDate(d.getDate()+1))days.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+ const wb=XLSX.utils.book_new(),summary=[['الكود','الاسم','اجازه بالخصم','التأخيرات','اضافي ساعات','جزاءات بالايام']];
+ list.forEach((emp,idx)=>{
+  const dept=(depts.find(x=>x.id==emp.dept)||{}).name||'مصنع الاكسجين';
+  const rows=[[],['الاداره','الكود','الاسم','اليوم','الحضور','الانصراف','الحضور','الانصراف','عدد ايام الحضور','اجازه','اجازه بالخصم','اجمالي ساعات','ساعات الوردية','التأخير','الانصراف المبكر','اضافي ساعات','اضافي راحة/عطلة','جزاء بالايام']];
+  let present=0,paid=0,unpaid=0,worked=0,scheduled=0,delay=0,early=0,extra1=0,extra2=0,penalty=0,expectedDays=0,absences=0;
+  const dayRows=[];
+  for(const iso of days){
+   const rec=attendance[iso+'_'+emp.code]||{},sch=getSch(emp,iso)||{};
+   const rest=!!rec.rest||isDeptRestDay(iso,sch),holiday=!!rec.holiday,mission=!!rec.mission;
+   const isPaid=rec.leaveStatus==='paid'||rec.leaveStatus==='half_paid',isUnpaid=rec.leaveStatus==='unpaid'||rec.leaveStatus==='half_unpaid';
+   const frac=Number(rec.leaveFraction)||(rec.leaveStatus==='half_paid'||rec.leaveStatus==='half_unpaid'?0.5:1);
+   const actual=hoursBetween(rec.in1,rec.out1),work=rec.workHours!==undefined&&rec.workHours!==''?dur(rec.workHours):actual;
+   const shift=hoursBetween(sch.from,sch.to)||8,dl=dur(rec.delay),er=dur(rec.early),ex=dur(rec.extra),pn=Number(rec.penaltyDays)||0;
+   const presentFlag=!!(rec.in1||rec.out1||mission);
+   const absent=!!rec.absent||(!presentFlag&&!rest&&!holiday&&!isPaid&&!isUnpaid&&iso<=new Date().toISOString().slice(0,10));
+   if(!rest&&!holiday){expectedDays++;scheduled+=shift;}
+   if(presentFlag)present++;if(absent)absences++;if(isPaid)paid+=frac;if(isUnpaid)unpaid+=frac;
+   worked+=work;delay+=dl;early+=er;penalty+=pn;
+   if(ex){if(rest||holiday||Number(rec.extraFactor)===2)extra2+=ex;else extra1+=ex;}
+   const row=[dept,emp.code,emp.name||'',new Date(iso+'T12:00:00'),rec.in1||null,rec.out1||null,null,null,presentFlag?1:null,isPaid?frac:null,isUnpaid?frac:null,work||null,shift,dl||null,er||null,ex&&!(rest||holiday||Number(rec.extraFactor)===2)?ex:null,ex&&(rest||holiday||Number(rec.extraFactor)===2)?ex:null,pn||null];
+   dayRows.push(row);
+  }
+  const totalExtra=extra1+extra2,ratio=expectedDays?absences/expectedDays:0;
+  rows[0]=['','','','','','','نسبه الغياب',ratio,expectedDays,paid,unpaid,worked,scheduled,delay,early,extra1,extra2,penalty];
+  rows.push(...dayRows);
+  const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:18},{wch:10},{wch:28},{wch:13},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:10},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:16},{wch:12}];ws['!views']=[{state:'frozen',ySplit:2}];ws['!autofilter']={ref:'A2:R'+rows.length};
+  for(let ri=3;ri<=rows.length;ri++){if(ws['D'+ri])ws['D'+ri].z='dd/mm/yyyy';for(const col of ['L','M','N','O','P','Q'])if(ws[col+ri])ws[col+ri].z='0.00';}
+  let name=(String(emp.code)+' '+String(emp.name||'')).replace(/[\\/?*\[\]:]/g,' ').slice(0,27).trim()||('موظف '+(idx+1));if(wb.SheetNames.includes(name))name=(name.slice(0,22)+' '+(idx+1)).slice(0,31);
+  XLSX.utils.book_append_sheet(wb,ws,name);
+  summary.push([emp.code,emp.name||'',unpaid,delay,totalExtra,penalty]);
+ });
+ const sw=XLSX.utils.aoa_to_sheet(summary);sw['!cols']=[{wch:12},{wch:28},{wch:16},{wch:16},{wch:16},{wch:16}];XLSX.utils.book_append_sheet(wb,sw,'اجمالي');
+ XLSX.writeFile(wb,'كشوف_مصنع_الأكسجين_'+from+'_الى_'+to+'.xlsx');
+}
 function exportVariableShifts(){const rows=[['بداية الوردية','نهاية الوردية','الكود','الاسم','ساعات العمل','إضافي','معامل','ملاحظات']];variableShifts.forEach(s=>{const e=emps.find(x=>x.code==s.code)||{};rows.push([s.start,s.end,s.code,e.name||'',s.hours,s.extra,s.factor,s.note||'']);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'ورديات الأكسجين');XLSX.writeFile(wb,'ورديات_مصنع_الأكسجين.xlsx');}
 
 renderDepts();renderEmps();document.getElementById('empImportMsg').textContent=`تم: إدارات ${addedDept} - موظفين ${addedEmp} - حضور ${updatedAtt}`;}catch(err){alert('خطأ: '+err.message);}};reader.readAsArrayBuffer(file);}
