@@ -168,7 +168,7 @@ function enableSecurityRotationBuilder(){
  <button type="button" class="btn-primary" onclick="buildSecurityRotation()">إنشاء الدورة وحفظها</button>
  `;
  const roster=tab.querySelector('#rosterTable');
- if(roster&&roster.parentElement)roster.parentElement.insertBefore(box,roster);
+ if(roster&&roster.parentElement)tab.insertBefore(box,roster.parentElement);
  else tab.insertBefore(box,tab.firstChild);
  const fill=()=>{const sel=document.getElementById('rotEmp'),old=sel.value;sel.innerHTML='';(emps||[]).filter(e=>e.active!==false).forEach(e=>{const o=document.createElement('option');o.value=e.code;o.textContent=e.code+' - '+e.name;sel.appendChild(o);});if(old)sel.value=old;};
  fill();box.addEventListener('click',fill);
