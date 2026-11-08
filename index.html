@@ -798,7 +798,7 @@ async function importZK(){
    out:pick(['الانصراف الفعلي','actualcheckout','checkout','lastout','clockout'],-1),
    delay:pick(['تأخير','late','delay'],-1),early:pick(['انصراف مبكر','early'],-1),
    absent:pick(['غياب','absent'],-1),leave:pick(['اجازه بالخصم','إجازة بالخصم','unpaidleave'],-1),
-   penalty:pick(['جزاء','جزاء بالايام','penalty'],-1),extra:pick(['إضافي - يوم عمل','اضافي ساعات','اضافي','overtime','extrahours','ot'],-1),
+   penalty:pick(['جزاء','جزاء بالايام','penalty'],-1),extra:pick(['اضافي','اضافي ساعات','overtime','extrahours','ot'],-1),extraWork:pick(['إضافي - يوم عمل','اضافي يوم عمل'],-1),
    extraRest:pick(['إضافي - عطله اسبوعيه','اضافي عطله اسبوعيه'],-1),extraHoliday:pick(['إضافي - اجازه رسميه','اضافي اجازه رسميه'],-1),
    exception:pick(['استثناءات','استثناء','exception'],-1),rest:pick(['عطله اسبوعيه','راحة اسبوعية','weeklyrest','restday'],-1),
    holiday:pick(['اجازه رسميه','عطله رسميه','holiday'],-1),workHours:pick(['اجمالي ساعات العمل','ساعات العمل','workhours','workedhours'],-1),
@@ -838,7 +838,7 @@ async function importZK(){
    if(val(r,'rest')&&truth(val(r,'rest')))rec.rest=true;
    if(val(r,'holiday')&&truth(val(r,'holiday')))rec.holiday=true;
    if(val(r,'perm')){rec.permHours=val(r,'perm');rec.permType=freePermissionCount(code,iso,key)<2?'free':'deduct';}
-   const ev=hours(val(r,'extraHoliday'))??hours(val(r,'extraRest'))??hours(val(r,'extra'));
+   const ev=hours(val(r,'extraHoliday'))??hours(val(r,'extraRest'))??hours(val(r,'extraWork'))??hours(val(r,'extra'));
    if(ev!==null&&ev>0){rec.extra=ev;rec.extraFactor=(hours(val(r,'extraHoliday'))!==null||hours(val(r,'extraRest'))!==null)?2:(Number(val(r,'factor'))===2?2:1);}
    if(val(r,'workHours'))rec.workHours=hours(val(r,'workHours'))??val(r,'workHours');
    updated++;
