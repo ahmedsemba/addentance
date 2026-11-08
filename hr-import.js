@@ -198,7 +198,7 @@
     try {
       const data = JSON.parse(await file.text());
       if (!data || data.format !== 'ahmed-hr-import-v1' || !data.employeeMaster ||
-          !Array.isArray(data.employeeMaster.active) || !Array.isArray(data.leaveLedger) ||
+          !Array.isArray(data.employeeMaster.active) || !Array.isArray(data.window.hrLeaveLedger) ||
           !data.attendanceLeave || typeof data.attendanceLeave !== 'object') {
         throw new Error('صيغة الملف غير صحيحة أو غير مكتملة');
       }
@@ -207,8 +207,8 @@
       hrMaster = data.employeeMaster;
       await saveHrMaster();
 
-      const importedLedger = data.leaveLedger || [];
-      const manualLedger = leaveLedger.filter(function (x) { return !String(x.id || '').startsWith('IMP_'); });
+      const importedLedger = data.window.hrLeaveLedger || [];
+      const manualLedger = window.hrLeaveLedger.filter(function (x) { return !String(x.id || '').startsWith('IMP_'); });
       const manualKeys = new Set(manualLedger.filter(function (x) {
         return ['paid', 'unpaid', 'special'].includes(x.kind);
       }).map(function (x) { return [x.code, x.date, x.kind].join('|'); }));
@@ -217,7 +217,7 @@
         if (['paid', 'unpaid', 'special'].includes(x.kind) && manualKeys.has([x.code, x.date, x.kind].join('|'))) return false;
         return true;
       });
-      leaveLedger = manualLedger.concat(cleanImported);
+      window.hrLeaveLedger = manualLedger.concat(cleanImported);
 
       const leaveProfileMap = new Map((data.leaveProfiles || []).map(function (p) { return [normCode(p.code), p]; }));
       const activeMasterMap = new Map((hrMaster.active || []).map(function (p) { return [normCode(p.code), p]; }));
@@ -265,7 +265,7 @@
   }
 
   function exportHRPackage() {
-    const importedLedger = leaveLedger.filter(function (x) { return String(x.id || '').startsWith('IMP_'); });
+    const importedLedger = window.hrLeaveLedger.filter(function (x) { return String(x.id || '').startsWith('IMP_'); });
     const attendanceLeave = {};
     Object.keys(attendance).forEach(function (key) {
       const r = attendance[key];
@@ -281,7 +281,7 @@
       .map(function (r) { return { code: r.code, hireDate: r.hireDate, leaveTypeCode: r.leaveTypeCode, leaveTypeLabel: r.leaveTypeLabel }; });
     downloadJSON('نسخة_ملفات_العاملين_والإجازات.json', {
       format: 'ahmed-hr-import-v1', asOf: '2026-11-08',
-      employeeMaster: hrMaster, leaveLedger: importedLedger,
+      employeeMaster: hrMaster, window.hrLeaveLedger: importedLedger,
       attendanceLeave: attendanceLeave, leaveProfiles: leaveProfiles
     });
   }
@@ -301,7 +301,7 @@
       let guard = 0;
       while (isoDate(cursor) <= asOf && guard++ < 600) {
         const date = isoDate(cursor);
-        const exists = leaveLedger.some(function (x) { return x.code == emp.code && x.date == date && x.kind == 'accrual'; });
+        const exists = window.hrLeaveLedger.some(function (x) { return x.code == emp.code && x.date == date && x.kind == 'accrual'; });
         if (!exists) {
           let amount = 0;
           if (emp.leaveType === 'migrant') {
@@ -319,12 +319,12 @@
             }
           }
           if (amount > 0) {
-            leaveLedger.push({ id: 'FUT' + date + '_' + emp.code, date: date, code: emp.code,
+            window.hrLeaveLedger.push({ id: 'FUT' + date + '_' + emp.code, date: date, code: emp.code,
               kind: 'accrual', label: 'استحقاق شهري', add: amount, deduct: 0,
               note: 'استحقاق تلقائي بعد تاريخ استيراد الأرصدة' });
             made++;
           } else {
-            leaveLedger.push({ id: 'FUT0' + date + '_' + emp.code, date: date, code: emp.code,
+            window.hrLeaveLedger.push({ id: 'FUT0' + date + '_' + emp.code, date: date, code: emp.code,
               kind: 'accrual', label: 'تسجيل دورة بدون استحقاق بعد الاستيراد', add: 0, deduct: 0,
               note: 'حفظ نقطة الدورة لمنع التكرار' });
           }
@@ -359,7 +359,7 @@
       const asOf = document.getElementById('accrualDate').value || '2026-11-08';
       const codes = new Set();
       emps.forEach(function (e) { codes.add(normCode(e.code)); });
-      leaveLedger.forEach(function (x) { codes.add(normCode(x.code)); });
+      window.hrLeaveLedger.forEach(function (x) { codes.add(normCode(x.code)); });
       const bal = document.getElementById('leaveBalances');
       if (bal) {
         bal.innerHTML = '<b>الأرصدة حتى ' + asOf + '</b><br>';
@@ -376,7 +376,7 @@
       const body = document.querySelector('#leaveTable tbody');
       if (body) {
         body.innerHTML = '';
-        leaveLedger.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }).forEach(function (x) {
+        window.hrLeaveLedger.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }).forEach(function (x) {
           const tr = document.createElement('tr');
           const values = [x.date, x.code, nameForCode(x.code), x.label || x.kind,
             Number(x.add || 0).toFixed(2), Number(x.deduct || 0).toFixed(2),
@@ -390,7 +390,7 @@
 
   window.exportLeaveLedger = function () {
     const rows = [['التاريخ', 'الكود', 'الاسم', 'الحركة', 'إضافة', 'خصم', 'الرصيد بعد الحركة', 'ملاحظات']];
-    leaveLedger.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }).forEach(function (x) {
+    window.hrLeaveLedger.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }).forEach(function (x) {
       rows.push([x.date, x.code, nameForCode(x.code), x.label || x.kind, x.add || 0, x.deduct || 0,
         ledgerBalance(x.code, x.date), x.note || '']);
     });
