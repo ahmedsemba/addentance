@@ -228,6 +228,8 @@ function saveEmpEdit(){
  if(!c||!nm)return alert('كود واسم');
  const old=editingEmpCode?emps.find(e=>e.code==editingEmpCode):null;
  if(emps.some(e=>e.code==c&&e.code!=editingEmpCode))return alert('الكود موجود بالفعل لموظف آخر');
+ if(old&&document.getElementById('empLeaveType').value!==(old.leaveType||'migrant'))return alert('لا تغيّر نوع الموظف من شاشة بيانات الموظفين؛ استخدم تسجيل تحويل نوع الموظف في تبويب الإجازات حتى لا تضيع التسوية التاريخية.');
+ if(old&&Array.isArray(old.leaveTransitions)&&old.leaveTransitions.length&&document.getElementById('empHireDate').value!==(old.hireDate||''))return alert('لا يمكن تعديل تاريخ التعيين بعد تسجيل تحويلات؛ للحفاظ على التسلسل التاريخي تواصل مع مدير النظام.');
  const obj={...(old||{}),code:c,name:nm,dept:dp,from:tf,to:tt,off,leaveType:document.getElementById('empLeaveType').value,hireDate:document.getElementById('empHireDate').value};
  if(editingEmpCode){
   const idx=emps.findIndex(e=>e.code==editingEmpCode);
@@ -311,6 +313,7 @@ function registerLeaveTypeConversion(){
  leaveLedger.push({id:'TYPE-CONV-'+emp.code+'-'+date,code:emp.code,date,kind:'conversion',label:'تحويل نوع الموظف',add:0,deduct:0,note:'تحويل من '+(current==='migrant'?'مغترب':'مقيم')+' إلى '+(target==='migrant'?'مغترب':'مقيم')+'؛ تتم التسوية تلقائيًا وفق قواعد الإجازات'});
  saveAll();const n=new Date(),asOf=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');ensureAccruals(asOf);saveExtraModules();renderLeaveModule();alert('تم تسجيل التحويل وإعادة احتساب الاستحقاقات. راجع سجل التحويل والرصيد قبل اعتماد أي تسوية مالية.');
 }
+function leaveTypeAt(emp,iso){const list=Array.isArray(emp.leaveTransitions)?emp.leaveTransitions.filter(x=>x.date<=iso).slice().sort((a,b)=>a.date.localeCompare(b.date)):[];return list.length?list[list.length-1].to:((emp.leaveBaseType)||(emp.leaveType||'migrant'));}
 function yearsAt(emp,iso){if(!emp.hireDate||!iso)return 0;return Math.max(0,(new Date(iso+'T12:00:00')-new Date(emp.hireDate+'T12:00:00'))/(365.2425*86400000));}
 function dateAddMonths(date,n){const d=new Date(date+'T12:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return d.toISOString().slice(0,10);}
 function latestLeaveYearStart(iso){const d=new Date(iso+'T12:00:00');const y=d.getFullYear();const candidate=(d.getMonth()>11||(d.getMonth()==11&&d.getDate()>=26))?new Date(y,11,26):new Date(y-1,11,26);return candidate.toISOString().slice(0,10);}
@@ -568,7 +571,7 @@ function exportResidentSettlement(){
  ensureAccruals(today);
  const rows=[['سنة التسوية','تاريخ الإقفال','كود الموظف','اسم الموظف','تاريخ التعيين','الرصيد المتبقي حتى 25 ديسمبر','ملاحظات']];
  let total=0,count=0;
- emps.filter(e=>(e.leaveType||'migrant')==='resident').forEach(e=>{
+ emps.filter(e=>leaveTypeAt(e,closeDate)==='resident').forEach(e=>{
   // Exclude this year's own closing entry so the exported figure is the balance immediately before settlement.
   const balance=leaveLedger.filter(x=>x.code==e.code&&x.date<=closeDate&&!(x.kind==='year_close'&&x.date===closeDate)).reduce((sum,x)=>sum+(Number(x.add)||0)-(Number(x.deduct)||0),0);
   if(balance>0.000001){rows.push([year,closeDate,e.code,e.name||'',e.hireDate||'',Number(balance.toFixed(2)),'الرصيد قبل التصفير؛ للمراجعة والتسوية المالية']);total+=balance;count++;}
