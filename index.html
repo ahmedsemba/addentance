@@ -39,10 +39,41 @@ tbody tr:hover{background:#eef8f6}
 .bulk-bar{background:#eaf8f5;border:1px solid #9dd9cc;border-radius:12px}
 @media(max-width:700px){header{gap:8px}.tabs{position:static}.tab{flex:1 1 auto;text-align:center;padding:9px 10px}.card{overflow-x:auto}.flex>*{max-width:100%}table{min-width:720px}}
 
+
+/* HR Pro visual refresh */
+:root{--primary:#126b78;--primary-dark:#0b4d59;--ink:#172b3a;--muted:#718096;--line:#e6edf2;--canvas:#f4f7fa;--accent:#21a38b}
+body{background:var(--canvas);color:var(--ink);font-family:"Segoe UI",Tahoma,Arial,sans-serif}
+header{background:linear-gradient(115deg,#102f46,#126b78 68%,#168b83);min-height:82px;padding:16px 28px;box-shadow:0 8px 24px #17394b20}
+header h1{font-size:23px}
+.container{max-width:1800px;padding:22px;display:grid;grid-template-columns:238px minmax(0,1fr);gap:18px;align-items:start}
+.tabs{grid-column:1;grid-row:1 / span 30;position:sticky;top:16px;display:flex;flex-direction:column;gap:7px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:12px;box-shadow:0 8px 26px #102f4610;min-height:calc(100vh - 125px)}
+.tab{display:flex;align-items:center;width:100%;text-align:right;padding:12px 14px;border:1px solid transparent;border-radius:11px;background:transparent;color:#4a6070;font-size:13px;font-weight:700;box-shadow:none}
+.tab:before{content:"";width:7px;height:7px;border-radius:50%;background:#b8c8d2;margin-left:9px;flex:none}
+.tab:hover{background:#f1f7f8;color:var(--primary);transform:none}
+.tab.active{background:#e8f4f4;color:var(--primary-dark);border-color:#cfe7e5;box-shadow:none}
+.tab.active:before{background:var(--accent);box-shadow:0 0 0 4px #21a38b20}
+.card{grid-column:2;border:1px solid var(--line);border-radius:17px;padding:22px;margin:0 0 16px;box-shadow:0 8px 26px #102f460a;background:#fff;min-width:0}
+.card h3{color:#163f50;font-size:19px;font-weight:800;margin-top:0}
+input,select{min-height:39px;border:1px solid #d6e0e7;border-radius:9px;padding:9px 11px;font-size:13px}
+input:focus,select:focus{outline:3px solid #b9e4df;border-color:#168b83}
+button{border-radius:9px;padding:10px 15px;font-size:12px;font-weight:700}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}
+.btn-sec{background:#edf2f5;color:#405466}
+table{font-size:12px;border-collapse:separate;border-spacing:0;background:#fff}
+th{background:#edf4f6;color:#315365;font-weight:800;z-index:2}
+th,td{border:0;border-bottom:1px solid #e8eef2;padding:10px 8px}
+tbody tr:nth-child(even){background:#fafcfd}tbody tr:hover{background:#eff8f7}
+.summary{background:#edf8f5;border:1px solid #c8e9df;color:#155b50;border-radius:12px;padding:14px}
+.edit-box{background:#fffaf0;border:1px solid #f1dfb9;border-radius:12px;padding:14px}
+.bulk-bar{background:#eef7f7;border:1px solid #d3e9e7;border-radius:12px;padding:12px}
+.small{color:var(--muted)}
+@media(max-width:950px){.container{grid-template-columns:1fr;padding:12px}.tabs{grid-column:1;grid-row:auto;position:static;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.card{grid-column:1}}
+@media(max-width:560px){header{padding:14px}.tabs{grid-template-columns:1fr 1fr}.tab{font-size:11px;padding:10px}.card{padding:13px}}
+
 </style>
 </head>
 <body>
-<header><h1>نظام الحضور v8.1 - راحة أي يوم + تعديل</h1><span id="periodLabel" class="small" style="color:#fff"></span></header>
+<header><h1>نظام الموارد البشرية والحضور والانصراف | مصنع العبور</h1><span id="periodLabel" class="small" style="color:#fff"></span></header>
 <div class="container">
 <div class="tabs">
 <div class="tab active" onclick="showTab('daily')">اليومية</div>
@@ -57,7 +88,7 @@ tbody tr:hover{background:#eef8f6}
 
 <div id="tab-daily" class="card">
 <div class="flex" style="justify-content:space-between">
-<h3 style="margin:0">اليومية - الراحة أوتوماتيك حسب يوم الإدارة</h3>
+<h3 style="margin:0">الحضور اليومي — متابعة الورديات والحركات</h3>
 <div class="flex"><input type="date" id="dailyDate" style="width:auto"><button class="btn-primary" onclick="renderDaily()">عرض</button><button class="btn-warn" onclick="autoCalcAll()">اقتراح</button></div>
 </div>
 <div class="bulk-bar"><strong>جماعي:</strong><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"><label>الكل</label><select id="bulkDept" style="width:120px"><option value="">كل الإدارات</option></select><button class="btn-sec" onclick="filterByDept()">فلتر</button><button class="btn-blue" onclick="bulkAction('rest')">راحة</button><button class="btn-blue" onclick="bulkAction('holiday')">عطلة</button><button class="btn-warn" onclick="bulkAction('clearDelay')">حذف تأخير</button><button class="btn-warn" onclick="bulkAction('clearEarly')">حذف مبكر</button><button class="btn-warn" onclick="bulkAction('clearNoSign')">حذف عدم توقيع</button><button class="btn-danger" onclick="bulkAction('clearAbs')">حذف غياب</button><button class="btn-sec" onclick="clearFilter()">إلغاء فلتر</button></div>
