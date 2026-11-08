@@ -365,12 +365,13 @@ async function previewLeaveImport(){
   if(ix.type<0)throw new Error('عمود نوع الحركة مطلوب');
   const dateOf=v=>{if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');if(typeof v==='number'&&v>10000){const d=XLSX.SSF.parse_date_code(v);return d?d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'):'';}const s=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const p=s.split(/[\/.-]/);if(p.length===3)return p[0].length===4?p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0'):p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');return '';};
   const kindOf=v=>{const t=norm(v);if(['مدفوعه','اجازه مدفوعه','paid','annual','سنويه'].includes(t)||t.includes('مدفوع'))return 'paid';if(['بدوناجر','غيرمدفوعه','unpaid'].includes(t)||t.includes('بدوناجر'))return 'unpaid';if(['تسويه','تعديل','adjust','رصيد'].includes(t)||t.includes('تسويه'))return 'adjust';return '';};
+  const validDate=s=>{const d=new Date(s+'T12:00:00');return !isNaN(d.getTime())&&d.toISOString().slice(0,10)===s;};
   const seen=new Set();let invalid=0,duplicate=0;
   for(let i=headAt+1;i<rows.length;i++){
    const r=rows[i];if(!r||!r.some(v=>String(v??'').trim()))continue;
    const date=dateOf(r[ix.date]),code=String(r[ix.code]??'').trim(),kind=kindOf(r[ix.type]),days=Number(String(r[ix.days]??'').replace(',','.')),note=ix.note>=0?String(r[ix.note]??'').trim():'';
    const emp=emps.find(e=>String(e.code)===code);
-   if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date+'T12:00:00').toISOString().slice(0,10)!==date||!code||!emp||!kind||!Number.isFinite(days)||(kind==='adjust'?days===0:days<=0)){invalid++;continue;}
+   if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!validDate(date)||!code||!emp||!kind||!Number.isFinite(days)||(kind==='adjust'?days===0:days<=0)){invalid++;continue;}
    const add=kind==='adjust'&&days>0?days:0,deduct=kind==='adjust'&&days<0?Math.abs(days):(kind==='paid'?days:0);
    const storedNote=kind==='unpaid'?'عدد الأيام بدون أجر: '+days+(note?' | '+note:''):note;
    const sig=[date,code,kind,add,deduct,storedNote].join('|');
