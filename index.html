@@ -156,6 +156,12 @@ tbody tr:hover{background:#eef8f6}
 <input id="leaveNote" placeholder="ملاحظات" style="width:180px">
 <button class="btn-primary" onclick="addLeaveMovement()">تسجيل الحركة</button>
 </div>
+<div class="edit-box" style="border:2px solid #087f70">
+ <b>استيراد الأرصدة الافتتاحية من Excel / CSV</b>
+ <div class="flex"><button class="btn-sec" onclick="downloadOpeningBalanceTemplate()">تنزيل قالب الأرصدة الافتتاحية</button><input type="file" id="openingBalanceFile" accept=".xlsx,.xls,.csv"><button class="btn-blue" onclick="previewOpeningBalances()">معاينة الملف</button><button class="btn-primary" onclick="applyOpeningBalances()" id="applyOpeningBalancesBtn" disabled>اعتماد الأرصدة</button></div>
+ <div class="small">الأعمدة: كود الموظف، نوع الموظف (مقيم/مغترب)، تاريخ التعيين، تاريخ بداية الرصيد، الرصيد الافتتاحي، ملاحظات. اترك النوع أو تاريخ التعيين فارغًا إذا كانت بياناتهما محفوظة بالفعل. لن يتم استبدال أي رصيد أو حركة موجودة؛ الصفوف المكررة تُستبعد.</div>
+ <div id="openingBalancePreview" class="small"></div>
+</div>
 <div class="edit-box" style="border:2px solid var(--blue)">
  <b>استيراد حركات الإجازات من Excel / CSV</b>
  <div class="flex"><button class="btn-sec" onclick="downloadLeaveImportTemplate()">تنزيل قالب حركات الإجازات</button><input type="file" id="leaveImportFile" accept=".xlsx,.xls,.csv"><button class="btn-blue" onclick="previewLeaveImport()">معاينة الملف</button><button class="btn-primary" onclick="applyLeaveImport()" id="applyLeaveImportBtn" disabled>اعتماد الحركات</button></div>
@@ -388,6 +394,59 @@ function applyLeaveImport(){
  const stamp=Date.now();
  stagedLeaveImport.forEach((x,i)=>leaveLedger.push({id:'IMP'+stamp+'_'+i,date:x.date,code:x.code,kind:x.kind,label:x.label,add:x.add,deduct:x.deduct,note:x.kind==='unpaid'?'عدد الأيام بدون أجر: '+x.days+(x.note?' | '+x.note:''):x.note}));
  saveExtraModules();stagedLeaveImport=[];document.getElementById('leaveImportFile').value='';document.getElementById('leaveImportPreview').textContent='تم اعتماد الحركات. راجع الأرصدة في الجدول.';document.getElementById('applyLeaveImportBtn').disabled=true;renderLeaveModule();
+}
+let stagedOpeningBalances=[];
+function downloadOpeningBalanceTemplate(){
+ const rows=[['كود الموظف','نوع الموظف','تاريخ التعيين','تاريخ بداية الرصيد','الرصيد الافتتاحي','ملاحظات'],['ضع الكود','مقيم','2020-01-15','2026-12-26','21','احذف صف المثال قبل الرفع'],['ضع الكود','مغترب','2024-03-10','2026-12-26','5','مثال']];
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'الأرصدة الافتتاحية');XLSX.writeFile(wb,'قالب_الأرصدة_الافتتاحية.xlsx');
+}
+async function previewOpeningBalances(){
+ const file=document.getElementById('openingBalanceFile').files[0],box=document.getElementById('openingBalancePreview'),btn=document.getElementById('applyOpeningBalancesBtn');
+ stagedOpeningBalances=[];btn.disabled=true;box.textContent='';if(!file)return alert('اختار ملف Excel أو CSV');
+ try{
+  let rows;
+  if(file.name.toLowerCase().endsWith('.csv')){
+   const txt=new TextDecoder('windows-1256').decode(new Uint8Array(await file.arrayBuffer()));
+   const first=txt.split(/\r?\n/)[0]||'',delim=first.includes(';')?';':(first.includes('\t')?'\t':',');
+   const parse=line=>{const a=[];let v='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c=='"'&&line[i+1]=='"'&&q){v+='"';i++;}else if(c=='"')q=!q;else if(c===delim&&!q){a.push(v.trim());v='';}else v+=c;}a.push(v.trim());return a;};
+   rows=txt.split(/\r?\n/).filter(x=>x.trim()).map(parse);
+  }else{
+   const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true});
+   rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+  }
+  const norm=v=>String(v??'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_()-]/g,'');
+  const hAt=rows.findIndex(r=>r.map(norm).includes('كودالموظف')&&r.map(norm).includes('الرصيدالافتتاحي'));
+  if(hAt<0)throw new Error('لم أجد عمودي كود الموظف والرصيد الافتتاحي');
+  const h=rows[hAt].map(norm),ix={code:h.indexOf('كودالموظف'),type:h.indexOf('نوعالموظف'),hire:h.indexOf('تاريخالتعيين'),date:h.indexOf('تاريخبدايةالرصيد'),balance:h.indexOf('الرصيدالافتتاحي'),note:h.indexOf('ملاحظات')};
+  if(ix.date<0||ix.balance<0)throw new Error('تاريخ بداية الرصيد والرصيد الافتتاحي مطلوبان');
+  const dateOf=v=>{if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');if(typeof v==='number'&&v>10000){const d=XLSX.SSF.parse_date_code(v);return d?d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'):'';}const z=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(z))return z;const p=z.split(/[\/.-]/);return p.length===3?(p[0].length===4?p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0'):p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0')):'';};
+  const validDate=z=>{const d=new Date(z+'T12:00:00');return !isNaN(d)&&d.toISOString().slice(0,10)===z;};
+  const seen=new Set();let invalid=0,duplicate=0;
+  for(let i=hAt+1;i<rows.length;i++){
+   const a=rows[i];if(!a||!a.some(v=>String(v??'').trim()))continue;
+   const code=String(a[ix.code]??'').trim(),date=dateOf(a[ix.date]),balance=Number(String(a[ix.balance]??'').replace(',','.'));
+   const typeRaw=ix.type>=0?norm(a[ix.type]):'',type=typeRaw.includes('مغترب')||typeRaw==='migrant'?'migrant':typeRaw.includes('مقيم')||typeRaw==='resident'?'resident':'';
+   const hire=ix.hire>=0&&String(a[ix.hire]??'').trim()?dateOf(a[ix.hire]):'';
+   const note=ix.note>=0?String(a[ix.note]??'').trim():'',emp=emps.find(e=>String(e.code)===code);
+   if(!emp||!date||!validDate(date)||!Number.isFinite(balance)||balance<0||(hire&&!validDate(hire))||(typeRaw&&!type)){invalid++;continue;}
+   const sig=code+'|'+date;if(seen.has(sig)||leaveLedger.some(x=>x.code==code&&x.date==date&&x.kind=='opening_balance')){duplicate++;continue;}
+   seen.add(sig);stagedOpeningBalances.push({code,date,balance,type,hire,note});
+  }
+  box.textContent='نتيجة المعاينة: صالح '+stagedOpeningBalances.length+' | مكرر '+duplicate+' | غير صحيح أو كود غير موجود '+invalid+'. راجع الملف قبل الاعتماد.';
+  btn.disabled=stagedOpeningBalances.length===0;
+ }catch(err){box.textContent='تعذر قراءة الملف: '+err.message;}
+}
+function applyOpeningBalances(){
+ if(!stagedOpeningBalances.length)return;
+ if(!confirm('سيتم إضافة الأرصدة الافتتاحية كسطور مستقلة في دفتر الإجازات دون حذف الحركات الموجودة. هل تعتمد؟'))return;
+ let added=0;
+ stagedOpeningBalances.forEach(x=>{
+  const emp=emps.find(e=>String(e.code)===x.code);if(!emp)return;
+  if(x.type)emp.leaveType=x.type;if(x.hire)emp.hireDate=x.hire;
+  leaveLedger.push({id:'OB'+Date.now()+Math.random(),date:x.date,code:x.code,kind:'opening_balance',label:'رصيد افتتاحي مستورد',add:x.balance,deduct:0,note:x.note||'رصيد افتتاحي'});
+  added++;
+ });
+ saveAll();saveExtraModules();stagedOpeningBalances=[];document.getElementById('applyOpeningBalancesBtn').disabled=true;document.getElementById('openingBalancePreview').textContent='تم اعتماد '+added+' رصيد افتتاحي.';renderLeaveModule();
 }
 function exportLeaveLedger(){const rows=[['التاريخ','الكود','الاسم','الحركة','إضافة','خصم','الرصيد بعد الحركة','ملاحظات']];leaveLedger.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{const e=emps.find(y=>y.code==x.code)||{};rows.push([x.date,x.code,e.name||'',x.label||x.kind,x.add||0,x.deduct||0,ledgerBalance(x.code,x.date),x.note||'']);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'حركة الإجازات');XLSX.writeFile(wb,'حركة_أرصدة_الإجازات.xlsx');}
 function downloadOxygenTemplate(){const rows=[['كود الموظف','التاريخ YYYY-MM-DD','بداية الوردية HH:MM','نهاية الوردية HH:MM','ساعات إضافي','معامل الإضافي','ملاحظات'],['467','2026-11-04','23:00','07:00','0','1','وردية ليلية']];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'ورديات');XLSX.writeFile(wb,'قالب_ورديات_الأكسجين.xlsx');}
