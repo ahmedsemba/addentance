@@ -98,6 +98,7 @@
           '<input type="file" id="hrDataFile" accept=".json,application/json" style="max-width:360px">' +
           '<button class="btn-primary" id="hrImportBtn">استيراد بيانات العاملين والإجازات</button>' +
           '<button class="btn-sec" id="hrExportBtn">تنزيل نسخة بيانات العاملين والإجازات</button>' +
+          '<button class="btn-blue" id="hrExportExcelBtn">تصدير ملف العاملين Excel</button>' +
         '</div>' +
         '<div class="small">الملف الخاص لا يُرفع إلى GitHub؛ يُحفظ محليًا في هذا المتصفح فقط. لا تشارك جهازك أو نسخة البيانات مع غير المصرح لهم.</div>' +
         '<div id="hrImportMsg" class="small" style="margin-top:8px"></div>' +
@@ -122,6 +123,7 @@
     document.getElementById('hrExcelImportBtn').addEventListener('click', importEmployeeWorkbook);
     document.getElementById('hrImportBtn').addEventListener('click', importHRPackage);
     document.getElementById('hrExportBtn').addEventListener('click', exportHRPackage);
+    document.getElementById('hrExportExcelBtn').addEventListener('click', exportEmployeeWorkbook);
     document.getElementById('hrSearch').addEventListener('input', renderHRData);
     document.getElementById('hrStatusFilter').addEventListener('change', renderHRData);
     document.getElementById('hrDocSaveBtn').addEventListener('click', saveEmployeeDocuments);
@@ -130,6 +132,26 @@
     });
   }
 
+
+
+  function exportEmployeeWorkbook() {
+    if(!window.XLSX){alert('مكتبة Excel لم تُحمّل');return;}
+    const groups=[['في العمل',hrMaster.active||[]],['المستقيلين',hrMaster.former||[]],['المستقيلين قديم',hrMaster.formerOld||[]]];
+    const wb=XLSX.utils.book_new();
+    groups.forEach(([sheet,records])=>{
+      const extraKeys=Array.from(new Set(records.flatMap(r=>Object.keys(r.fields||{}))));
+      const headers=['كود الموظف','الاسم','المصنع / الفرع','الإدارة','الوظيفة','تاريخ التعيين','نوع الموظف','الحالة','سبب إنهاء الخدمة','تاريخ إنهاء الخدمة'].concat(extraKeys);
+      const rows=[headers];
+      records.forEach(r=>{
+        const base=[r.code||'',r.name||'',r.factory||'',r.departmentCode||r.department||'',r.job||'',r.hireDate||'',r.leaveTypeLabel||r.leaveTypeCode||'',r.status||'',r.reason||'',r.terminationDate||''];
+        rows.push(base.concat(extraKeys.map(k=>(r.fields||{})[k]??'')));
+      });
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=headers.map(h=>({wch:Math.min(28,Math.max(12,String(h).length+3))}));
+      XLSX.utils.book_append_sheet(wb,ws,sheet);
+    });
+    XLSX.writeFile(wb,'ملف_العاملين_الشركة_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  }
 
   function normalizeHeader(v) {
     return String(v == null ? '' : v).toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'')
