@@ -110,7 +110,16 @@ tbody tr:hover{background:#eef8f6}
 <div class="flex" style="margin-bottom:8px"><button class="btn-primary" onclick="startNewDept()">+ إدارة جديدة</button></div>
 <table id="deptTable"><thead><tr><th>إدارة</th><th>ميعاد</th><th>راحة</th><th>تعديل</th><th>حذف</th></tr></thead><tbody></tbody></table>
 </div><div id="tab-import" class="card" style="display:none">
-<h3>الاستيراد</h3>
+<h3>الاستيراد — اختار نوع الملف الصحيح</h3>
+<div class="summary" style="margin-bottom:12px">
+<b>قبل الرفع:</b> خُد نسخة احتياطية أولاً. راجع المعاينة والعدد قبل التأكيد. لا تغيّر أسماء الأعمدة في القوالب، ولا ترفع ملفاً من نوع مختلف.
+<ul>
+<li><b>بيانات الموظفين:</b> Excel أو CSV من زر «قالب الموظفين». الأعمدة بالترتيب: كود، اسم، تاريخ، إدارة، حضور، انصراف. التاريخ يوم/شهر/سنة أو YYYY-MM-DD، والوقت HH:MM. يمكن ترك الحضور والانصراف فارغين عند رفع بيانات الموظفين فقط.</li>
+<li><b>البصمة:</b> ارفع ملف CSV الأصلي الخارج من جهاز ZK كما هو، ولا تحفظه من Excel قبل الرفع؛ يجب أن يحتوي عناوين مثل رقم البصمة، الاسم، التاريخ، والحضور/الانصراف.</li>
+<li><b>الإجازات وملفات العاملين:</b> الاستيراد الحالي لها من ملف JSON الخاص الذي يتم تصديره من تبويب «ملفات العاملين»، وليس من ملف Excel عادي.</li>
+<li><b>النسخة الاحتياطية:</b> ملف JSON كامل يستبدل بيانات هذا المتصفح عند الاستعادة؛ لا تستخدمه كأنه ملف موظفين أو بصمة.</li>
+</ul>
+</div>
 <div style="border:2px solid var(--primary);padding:12px;border-radius:8px;margin-bottom:12px;background:#e8f5e9">
 <h4>1- رفع موظفين بالإدارات (كود-اسم-تاريخ-إدارة-حضور-انصراف)</h4>
 <div class="flex"><input type="file" id="empFile" accept=".xlsx,.xls,.csv"><button class="btn-primary" onclick="importEmpsWithDepts()">رفع وتحديث</button><span id="empImportMsg" class="small"></span><button class="btn-sec" onclick="downloadTemplate()">قالب</button></div>
@@ -166,7 +175,12 @@ tbody tr:hover{background:#eef8f6}
 <div class="flex"><button class="btn-sec" onclick="exportVariableShifts()">تصدير الورديات Excel</button><button class="btn-blue" onclick="exportOxygenEmployeeSheets()">تصدير كشف مستقل لكل موظف</button></div>
 <div style="overflow:auto;max-height:55vh"><table id="shiftTable"><thead><tr><th>بداية الوردية</th><th>نهاية الوردية</th><th>الكود</th><th>الاسم</th><th>الساعات</th><th>إضافي</th><th>المعامل</th><th>ملاحظات</th><th>حذف</th></tr></thead><tbody></tbody></table></div>
 </div>
-<div id="tab-export" class="card" style="display:none"><h3>تصدير</h3><div class="flex"><input type="date" id="expFrom" style="width:150px"><input type="date" id="expTo" style="width:150px"><button class="btn-primary" onclick="exportExcel()">تصدير</button></div></div>
+<div id="tab-export" class="card" style="display:none"><h3>تصدير البيانات</h3>
+<div class="edit-box"><b>تصدير الحضور والبصمة المعتمدة</b><div class="flex"><label>من</label><input type="date" id="expFrom" style="width:150px"><label>إلى</label><input type="date" id="expTo" style="width:150px"><button class="btn-primary" onclick="exportExcel()">تصدير Excel</button></div><div class="small">يصدر كشف الحضور للفترة المحددة.</div></div>
+<div class="edit-box"><b>تصدير قائمة الموظفين والإدارات</b><div class="flex"><button class="btn-blue" onclick="exportEmployeesList()">تنزيل Excel الموظفين</button></div><div class="small">يشمل الكود والاسم والإدارة والموعد والراحة وتاريخ التعيين ونوع الإجازة المسجل.</div></div>
+<div class="edit-box"><b>تصدير الإجازات</b><div class="flex"><button class="btn-blue" onclick="exportLeaveLedger()">تنزيل حركة الإجازات Excel</button></div><div class="small">هذا تقرير للمراجعة، وليس ملف استيراد مباشر.</div></div>
+<div class="edit-box"><b>نسخة احتياطية كاملة</b><div class="flex"><button class="btn-primary" onclick="exportFullBackup()">تنزيل نسخة JSON كاملة</button></div><div class="small">تحتوي الموظفين والإدارات والحضور والإجازات والورديات. احتفظ بها في مكان آمن.</div></div>
+</div></div>
 </div>
 <script>
 let depts=JSON.parse(localStorage.getItem('att_depts_v81')||localStorage.getItem('att_depts_v8')||'[]');
@@ -465,6 +479,15 @@ async function importFullBackup(){
   renderDepts();renderEmps();syncVariableShiftsToAttendance();renderDaily();renderReportDepts();renderLeaveModule();renderRosterTable();renderShiftTable();
   alert('تمت استعادة البيانات بنجاح');
  }catch(err){alert('تعذر استعادة النسخة: '+err.message);}
+}
+function exportEmployeesList(){
+ const rows=[['كود','اسم','إدارة','ميعاد بداية','ميعاد نهاية','الراحة الأسبوعية','تاريخ التعيين','نوع الإجازة']];
+ emps.slice().sort((a,b)=>String(a.code).localeCompare(String(b.code),'en',{numeric:true})).forEach(e=>{
+  const d=depts.find(x=>x.id==e.dept)||{};
+  rows.push([e.code,e.name||'',d.name||'',e.from||d.from||'',e.to||d.to||'',e.off||d.off||'',e.hireDate||'',e.leaveType||'']);
+ });
+ const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'الموظفون');
+ XLSX.writeFile(wb,'بيانات_الموظفين_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function downloadTemplate(){const rows=[['كود','اسم','تاريخ (dd/mm/yyyy)','إدارة','حضور (HH:MM)','انصراف (HH:MM)'],['467','احمد سمبا','01/11/2026','التنكات','08:05','16:30']];const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'قالب');XLSX.writeFile(wb,'قالب_الموظفين_بالإدارات.xlsx');}
 async function importZK(){
