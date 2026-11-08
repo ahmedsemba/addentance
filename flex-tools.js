@@ -177,6 +177,7 @@ function buildSecurityRotation(){
  const code=document.getElementById('rotEmp').value,start=document.getElementById('rotStart').value,off=document.getElementById('rotOff').value,cycles=Number(document.getElementById('rotCycles').value);
  const emp=(emps||[]).find(e=>String(e.code)===String(code));
  if(!emp||!start||!Number.isInteger(cycles)||cycles<1||cycles>24)return alert('اختر موظفًا وتاريخ بداية وعدد دورات من 1 إلى 24');
+ if(start&&new Date(start+'T12:00:00').getDay()!==6)return alert('بداية دورة الأمن يجب أن تكون يوم السبت؛ لأن الأسبوع الثالث ينتهي براحة الجمعة الليلية ثم تبدأ الوردية الصباحية يوم السبت.');
  const shifts=[document.getElementById('rotShift1').value,document.getElementById('rotShift2').value,document.getElementById('rotShift3').value].map(x=>x.split('|'));
  const f1=[document.getElementById('rotFri1From').value,document.getElementById('rotFri1To').value],f2=[document.getElementById('rotFri2From').value,document.getElementById('rotFri2To').value];
  if(!f1[0]||!f1[1]||!f2[0]||!f2[1])return alert('أدخل مواعيد الجمعة في الأسبوعين الأول والثاني');
