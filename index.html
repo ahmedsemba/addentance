@@ -7,6 +7,38 @@
 <style>
 :root{--primary:#0f6c3f;--danger:#d32f2f;--warn:#ff9800;--blue:#1565c0}
 *{box-sizing:border-box;font-family:'Segoe UI',Tahoma}body{margin:0;background:#f5f5f5}header{background:var(--primary);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap}.container{padding:12px;max-width:1600px;margin:auto}.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}.tab{padding:9px 12px;background:#fff;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px}.tab.active{background:var(--primary);color:#fff}.card{background:#fff;border-radius:10px;padding:14px;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,.07)}input,select{width:100%;padding:7px;border:1px solid #ccc;border-radius:6px;font-size:12px}button{padding:7px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px}.btn-primary{background:var(--primary);color:#fff}.btn-sec{background:#eee}.btn-danger{background:var(--danger);color:#fff}.btn-warn{background:var(--warn);color:#fff}.btn-blue{background:var(--blue);color:#fff}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #e0e0e0;padding:5px;text-align:center}th{background:#f0f0f0;position:sticky;top:0}.flex{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.small{font-size:10px;color:#555}.bulk-bar{background:#e8f5e9;border:2px solid var(--primary);padding:10px;border-radius:8px;margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.summary{background:#fff3e0;border:1px solid #ff9800;padding:10px;border-radius:8px;margin-top:10px}.edit-box{background:#fffde7;border:2px solid #fbc02d;padding:10px;border-radius:8px;margin-bottom:10px}
+
+/* واجهة حديثة ومتجاوبة - تحسين بصري دون تغيير وظائف النظام */
+:root{--primary:#087f70;--primary-dark:#075e57;--ink:#172b3a;--muted:#64748b;--line:#e2e8f0;--surface:#fff;--canvas:#f3f7fa;--blue:#2563eb;--danger:#dc3545;--warn:#d97706}
+*{font-family:Tahoma,'Segoe UI',Arial,sans-serif}
+body{background:var(--canvas);color:var(--ink);line-height:1.55}
+header{background:linear-gradient(115deg,#073b49,#087f70 72%,#159b86);padding:18px clamp(14px,3vw,34px);box-shadow:0 5px 18px #1232}
+header h1{font-size:clamp(18px,2.2vw,26px);margin:0;font-weight:800}
+.container{max-width:1680px;padding:18px clamp(10px,2vw,24px)}
+.tabs{position:sticky;top:0;z-index:20;background:#f3f7faeF;padding:8px 0 12px;backdrop-filter:blur(10px);gap:8px}
+.tab{border:1px solid var(--line);border-radius:10px;background:#fff;color:#334155;padding:10px 15px;font-size:13px;transition:.18s;box-shadow:0 2px 5px #0f172a08}
+.tab:hover{border-color:#7dd3c7;transform:translateY(-1px)}
+.tab.active{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 4px 12px #087f7033}
+.card{border:1px solid var(--line);border-radius:14px;padding:clamp(12px,1.6vw,20px);margin-bottom:16px;box-shadow:0 5px 18px #0f172a0a}
+.card h3{color:#0f4c5c;margin-top:0;font-size:18px}
+input,select{min-height:36px;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;background:#fff;color:var(--ink);font-size:13px}
+input:focus,select:focus{outline:2px solid #99e5d8;border-color:var(--primary)}
+button{border-radius:8px;padding:9px 14px;font-size:12px;transition:filter .15s,transform .15s}
+button:hover{filter:brightness(.96);transform:translateY(-1px)}
+.btn-primary{background:var(--primary)}.btn-primary:hover{background:var(--primary-dark)}
+.btn-sec{background:#e9eff4;color:#334155}.btn-blue{background:var(--blue)}
+table{font-size:12px;background:#fff}
+th{background:#eaf2f5;color:#244454;font-weight:800;z-index:2}
+th,td{border-color:#e5edf1;padding:8px 7px}
+tbody tr:nth-child(even){background:#f8fbfc}
+tbody tr:hover{background:#eef8f6}
+.flex{gap:8px}
+.small{font-size:11px;color:var(--muted)}
+.summary{background:#effaf7;border:1px solid #b8e6db;color:#14564c;border-radius:10px}
+.edit-box{background:#fffaf0;border:1px solid #f2d49a;border-radius:10px}
+.bulk-bar{background:#eaf8f5;border:1px solid #9dd9cc;border-radius:12px}
+@media(max-width:700px){header{gap:8px}.tabs{position:static}.tab{flex:1 1 auto;text-align:center;padding:9px 10px}.card{overflow-x:auto}.flex>*{max-width:100%}table{min-width:720px}}
+
 </style>
 </head>
 <body>
@@ -637,6 +669,6 @@ expFrom.value=f.toISOString().slice(0,10);expTo.value=t.toISOString().slice(0,10
 renderDaily();renderReportDepts();
 document.getElementById('periodLabel').textContent=`فترة: ${f.toISOString().slice(0,10)} إلى ${t.toISOString().slice(0,10)}`;
 </script>
-<script src="hr-import.js"></script>
+<script src="hr-import.js?v=20261108-2"></script>
 </body>
 </html>
