@@ -151,7 +151,7 @@ function enableSecurityRotationBuilder(){
  const box=document.createElement('div');box.id='securityRotationBox';box.className='edit-box';
  box.innerHTML=`
  <b>إنشاء دورة ورديات الأمن تلقائيًا (3 أسابيع متكررة)</b>
- <div class="small">اختر الموظف وتاريخ بداية أول أسبوع. كل أسبوع مدته 7 أيام، ويُحدد يوم الراحة الأساسي لكل موظف. الجمعة: الأسبوع الأول 7 ص–7 م، الثاني 7 م–7 ص، والثالث راحة. يمكن تغيير الورديات قبل الإنشاء.</div>
+ <div class="small">اختر الموظف وتاريخ بداية أول أسبوع. كل أسبوع مدته 7 أيام. يوم الراحة الأسبوعي الأساسي يختلف حسب الموظف. الجمعة في الأسبوع الأول 7 ص–7 م (4 ساعات إضافية)، وفي الثاني 7 م–7 ص (4 ساعات إضافية)، وفي الثالث راحة ليلية ثابتة للجميع. في الأسبوع الثالث يجتمع يوم الجمعة مع يوم الراحة الشخصي؛ وهما يومَا التعويض عن 8 ساعات الجمعة الإضافية في الأسبوعين السابقين. بداية الأسبوع التالي تكون الوردية الصباحية يوم السبت.</div>
  <div class="flex" style="align-items:end;flex-wrap:wrap">
   <div><label>الموظف</label><select id="rotEmp"></select></div>
   <div><label>بداية أول أسبوع</label><input type="date" id="rotStart"></div>
@@ -199,12 +199,12 @@ function buildSecurityRotation(){
    if(variableShifts.some(x=>String(x.code)===String(code)&&x.start&&x.start.slice(0,10)===p.friday))return alert('توجد وردية متغيرة محفوظة بالفعل في '+st+'؛ لم يتم إنشاء الدورة.');
   }
  }
- if(!confirm('سيتم إنشاء '+plans.length+' جدول أسبوعي للموظف '+emp.name+'، مع ورديات الجمعة الخاصة وتكرار الدورة '+cycles+' مرة. لن تُحذف أي سجلات حضور سابقة. متابعة؟'))return;
+ if(!confirm('سيتم إنشاء '+plans.length+' جدول أسبوعي للموظف '+emp.name+'، مع ورديتي الجمعة (12 ساعة لكل منهما)، وراحة الجمعة الليلية الثابتة في الأسبوع الثالث بالإضافة إلى يوم الراحة الشخصي كتعويض عن 8 ساعات إضافية إجمالًا. تكرار الدورة '+cycles+' مرة. لن تُحذف أي سجلات حضور سابقة. متابعة؟'))return;
  plans.forEach(p=>{
   weeklyRosters.push({id:'ROT-'+Date.now()+'-'+Math.random().toString(36).slice(2),code:String(code),start:p.ws,end:p.we,from:p.from,to:p.to,off,off2:p.w===2?'Friday':''});
   if(p.w<2){
    const times=p.w===0?f1:f2,endDate=times[1]<=times[0]?addDays(p.friday,1):p.friday,st=p.friday+'T'+times[0],en=endDate+'T'+times[1];
-   variableShifts.push({id:'ROT-S-'+Date.now()+'-'+Math.random().toString(36).slice(2),code:String(code),start:st,end:en,hours:(new Date(en)-new Date(st))/3600000,extra:0,factor:1,note:p.w===0?'وردية جمعة 12 ساعة - أسبوع صباحي':'وردية جمعة ليلية - أسبوع مسائي'});
+   variableShifts.push({id:'ROT-S-'+Date.now()+'-'+Math.random().toString(36).slice(2),code:String(code),start:st,end:en,hours:(new Date(en)-new Date(st))/3600000,extra:0,factor:1,note:p.w===0?'وردية جمعة 12 ساعة - 4 ساعات إضافية - تعويضها براحة الأسبوع الثالث':'وردية جمعة ليلية 12 ساعة - 4 ساعات إضافية - تعويضها براحة الأسبوع الثالث'});
   }
  });
  saveExtraModules();if(typeof renderRosterTable==='function')renderRosterTable();if(typeof renderShiftTable==='function')renderShiftTable();if(typeof renderDaily==='function')renderDaily();
