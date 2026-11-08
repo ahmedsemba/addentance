@@ -70,69 +70,37 @@
   }
 
   function addHrTab() {
-    const tabs = document.querySelector('.tabs');
-    const container = document.querySelector('.container');
-    if (!tabs || !container || document.getElementById('tab-hrdata')) return;
-
-    const tab = document.createElement('div');
-    tab.className = 'tab';
-    tab.textContent = 'ملفات العاملين';
-    tab.setAttribute('onclick', "showTab('hrdata')");
-    tab.addEventListener('click', function () { setTimeout(renderHRData, 0); });
-    tabs.appendChild(tab);
-
-    const panel = document.createElement('div');
-    panel.id = 'tab-hrdata';
-    panel.className = 'card';
-    panel.style.display = 'none';
-    panel.innerHTML =
-      '<h3>ملفات العاملين</h3>' +
-      '<div class="edit-box">' +
-        '<b>1) استيراد ملف العاملين من Excel</b>' +
-        '<div class="flex" style="margin-top:8px"><input type="file" id="hrExcelFile" accept=".xlsx,.xls,.csv" style="max-width:360px"><button class="btn-primary" id="hrExcelImportBtn">معاينة ودمج العاملين</button><button class="btn-danger" id="hrExcelReplaceBtn">استبدال قائمة العاملين بالكامل</button></div>' +
-        '<div class="small">يدعم ملف الشركة متعدد الشيتات مثل: في العمل، المستقيلين، والمستقيلين قديم. تتم المطابقة بكود الموظف، وتُحفظ كل بيانات المصنع. موظفو العبور فقط يمكن ربطهم بشاشة الحضور.</div>' +
-        '<div id="hrExcelImportMsg" class="small" style="margin-top:6px"></div>' +
-        '<hr style="border:0;border-top:1px solid #e5edf1;margin:14px 0">' +
-        '<b>2) استيراد / تصدير نسخة بيانات العاملين والإجازات</b>' +
-        '<div class="flex" style="margin-top:8px">' +
-          '<input type="file" id="hrDataFile" accept=".json,application/json" style="max-width:360px">' +
-          '<button class="btn-primary" id="hrImportBtn">استيراد بيانات العاملين والإجازات</button>' +
-          '<button class="btn-sec" id="hrExportBtn">تنزيل نسخة بيانات العاملين والإجازات</button>' +
-          '<button class="btn-blue" id="hrExportExcelBtn">تصدير ملف العاملين Excel</button>' +
-        '</div>' +
-        '<div class="small">الملف الخاص لا يُرفع إلى GitHub؛ يُحفظ محليًا في هذا المتصفح فقط. لا تشارك جهازك أو نسخة البيانات مع غير المصرح لهم.</div>' +
-        '<div id="hrImportMsg" class="small" style="margin-top:8px"></div>' +
-      '</div>' +
-      '<div class="flex" style="margin-bottom:8px">' +
-        '<input id="hrSearch" placeholder="بحث بالكود أو الاسم أو الوظيفة" style="max-width:320px">' +
-        '<select id="hrStatusFilter" style="max-width:190px">' +
-          '<option value="all">كل الملفات</option>' +
-          '<option value="active">العاملون حاليًا</option>' +
-          '<option value="former">المستقيلون</option>' +
-          '<option value="formerOld">المستقيلون - قديم</option>' +
-          '<option value="unmatchedLeave">أكواد الإجازات غير الموجودة بملف العاملين</option>' +
-        '</select>' +
-      '</div>' +
-      '<div id="hrDataSummary" class="summary"></div>' +
-      '<div style="overflow:auto;max-height:55vh"><table id="hrDataTable"><thead><tr>' +
-        '<th>الكود</th><th>الاسم</th><th>المصنع / الفرع</th><th>كود الإدارة</th><th>الوظيفة</th><th>تاريخ التعيين</th><th>الحالة</th><th>التفاصيل</th><th>إجراء</th>' +
-      '</tr></thead><tbody></tbody></table></div>' +
-      '<div id="hrDetailBox" class="edit-box" style="display:none;margin-top:12px"><div class="flex" style="justify-content:space-between"><b id="hrDetailTitle">تفاصيل العامل</b><button class="btn-sec" id="hrDetailClose">إغلاق</button></div><div style="overflow:auto;max-height:50vh"><table id="hrDetailTable"><tbody></tbody></table></div><hr><b>مستندات الموظف (تُحفظ على هذا الجهاز فقط)</b><div class="flex"><input type="file" id="hrDocFiles" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"><button class="btn-primary" id="hrDocSaveBtn">حفظ المستندات</button></div><div id="hrDocList" class="small"></div></div>';
-
+    const tabs=document.querySelector('.tabs'),container=document.querySelector('.container');
+    if(!tabs||!container||document.getElementById('tab-hrdata'))return;
+    const tab=document.createElement('div');tab.className='tab';tab.textContent='ملفات العاملين';
+    tab.setAttribute('onclick',"showTab('hrdata')");tab.addEventListener('click',()=>setTimeout(renderHRData,0));tabs.appendChild(tab);
+    const panel=document.createElement('div');panel.id='tab-hrdata';panel.className='card';panel.style.display='none';
+    panel.innerHTML=
+      '<h3>إدارة ملفات العاملين — بحث وتعديل وحذف واستيراد وتصدير</h3>'+
+      '<div class="edit-box"><b>استيراد ملفات العاملين</b><div class="flex" style="margin-top:8px"><input type="file" id="hrExcelFile" accept=".xlsx,.xls,.csv" style="max-width:360px"><button class="btn-primary" id="hrExcelImportBtn">معاينة ودمج العاملين</button><button class="btn-danger" id="hrExcelReplaceBtn">استبدال القوائم بالكامل</button></div>'+
+      '<div class="small">الدمج يحدّث السجلات حسب الكود. الاستبدال يستبدل قوائم العاملين الحاليين والمستقيلين فقط، ولا يمسح سجلات الحضور التاريخية أو حركات الإجازات أو المستندات.</div><div id="hrExcelImportMsg" class="small" style="margin-top:6px"></div>'+
+      '<hr style="border:0;border-top:1px solid #e5edf1;margin:12px 0"><b>نسخة بيانات العاملين والإجازات</b><div class="flex" style="margin-top:8px"><input type="file" id="hrDataFile" accept=".json,application/json" style="max-width:360px"><button class="btn-primary" id="hrImportBtn">استيراد النسخة</button><button class="btn-sec" id="hrExportBtn">تصدير النسخة</button><button class="btn-blue" id="hrExportExcelBtn">تصدير Excel</button></div><div id="hrImportMsg" class="small" style="margin-top:6px"></div></div>'+
+      '<div class="edit-box"><b>إضافة / تعديل سجل عامل</b><div class="flex" style="margin-top:8px"><input id="hrEditCode" placeholder="كود الموظف" style="max-width:150px"><input id="hrEditName" placeholder="اسم الموظف" style="max-width:220px"><input id="hrEditFactory" placeholder="المصنع / الفرع" style="max-width:180px"><input id="hrEditDept" placeholder="الإدارة / القسم" style="max-width:180px"><input id="hrEditJob" placeholder="الوظيفة" style="max-width:180px"><input id="hrEditHire" type="date" title="تاريخ التعيين" style="max-width:160px"><select id="hrEditType" style="max-width:130px"><option value="">نوع الإجازة غير محدد</option><option value="resident">مقيم</option><option value="migrant">مغترب</option></select><select id="hrEditGroup" style="max-width:160px"><option value="active">عامل حالي</option><option value="former">مستقيل</option><option value="formerOld">مستقيل قديم</option></select><button class="btn-primary" id="hrSaveEditBtn">حفظ السجل</button><button class="btn-sec" id="hrCancelEditBtn">مسح الحقول</button></div><div class="small">الكود لا يتغير عند تعديل سجل موجود حتى لا تنفصل عنه حركات الحضور والإجازات. لتصحيح الكود يلزم إجراء مستقل يحدّث كل الارتباطات.</div></div>'+
+      '<div class="flex" style="margin-bottom:8px;align-items:center"><input id="hrSearch" placeholder="بحث بالكود أو الاسم أو الوظيفة" style="max-width:240px"><select id="hrStatusFilter" style="max-width:170px"><option value="all">كل الحالات</option><option value="active">العاملون حاليًا</option><option value="former">المستقيلون</option><option value="formerOld">مستقيل قديم</option><option value="unmatchedLeave">أكواد إجازات غير مرتبطة</option></select><select id="hrFactoryFilter" style="max-width:180px"><option value="">كل المصانع</option></select><input id="hrDeptFilter" placeholder="فلتر الإدارة" style="max-width:160px"><button class="btn-sec" id="hrClearFiltersBtn">مسح الفلاتر</button></div>'+
+      '<div class="bulk-bar"><label><input type="checkbox" id="hrSelectVisible" style="width:auto;min-height:0"> تحديد النتائج الظاهرة</label><button class="btn-blue" id="hrBulkEditBtn">تعديل مصنع / إدارة للمحدد</button><button class="btn-danger" id="hrDeleteSelectedBtn">حذف المحدد</button><button class="btn-danger" id="hrDeleteFilteredBtn">حذف نتائج الفلتر</button><button class="btn-danger" id="hrDeleteAllBtn">حذف كل ملفات العاملين</button><button class="btn-sec" id="hrExportFilteredBtn">تصدير النتائج Excel</button></div>'+
+      '<div id="hrDataSummary" class="summary"></div><div style="overflow:auto;max-height:55vh"><table id="hrDataTable"><thead><tr><th>تحديد</th><th>الكود</th><th>الاسم</th><th>المصنع / الفرع</th><th>الإدارة</th><th>الوظيفة</th><th>تاريخ التعيين</th><th>الحالة</th><th>التفاصيل</th><th>تعديل</th><th>حذف</th></tr></thead><tbody></tbody></table></div>'+
+      '<div id="hrDetailBox" class="edit-box" style="display:none;margin-top:12px"><div class="flex" style="justify-content:space-between"><b id="hrDetailTitle">تفاصيل العامل</b><button class="btn-sec" id="hrDetailClose">إغلاق</button></div><div style="overflow:auto;max-height:50vh"><table id="hrDetailTable"><tbody></tbody></table></div><hr><b>مستندات الموظف (على هذا الجهاز)</b><div class="flex"><input type="file" id="hrDocFiles" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"><button class="btn-primary" id="hrDocSaveBtn">حفظ المستندات</button></div><div id="hrDocList" class="small"></div></div>';
     container.appendChild(panel);
-    document.getElementById('hrExcelImportBtn').addEventListener('click', function () { importEmployeeWorkbook(false); });
-    document.getElementById('hrExcelReplaceBtn').addEventListener('click', function () { importEmployeeWorkbook(true); });
-    document.getElementById('hrImportBtn').addEventListener('click', importHRPackage);
-    document.getElementById('hrExportBtn').addEventListener('click', exportHRPackage);
-    document.getElementById('hrExportExcelBtn').addEventListener('click', exportEmployeeWorkbook);
-    document.getElementById('hrSearch').addEventListener('input', renderHRData);
-    document.getElementById('hrStatusFilter').addEventListener('change', renderHRData);
-    document.getElementById('hrDocSaveBtn').addEventListener('click', saveEmployeeDocuments);
-    document.getElementById('hrDetailClose').addEventListener('click', function () {
-      document.getElementById('hrDetailBox').style.display = 'none';
-    });
+    const on=(id,fn)=>document.getElementById(id).addEventListener('click',fn);
+    on('hrExcelImportBtn',()=>importEmployeeWorkbook(false));on('hrExcelReplaceBtn',()=>importEmployeeWorkbook(true));
+    on('hrImportBtn',importHRPackage);on('hrExportBtn',exportHRPackage);on('hrExportExcelBtn',exportEmployeeWorkbook);
+    document.getElementById('hrSearch').addEventListener('input',renderHRData);
+    document.getElementById('hrStatusFilter').addEventListener('change',renderHRData);
+    document.getElementById('hrFactoryFilter').addEventListener('change',renderHRData);
+    document.getElementById('hrDeptFilter').addEventListener('input',renderHRData);
+    on('hrClearFiltersBtn',()=>{document.getElementById('hrSearch').value='';document.getElementById('hrStatusFilter').value='all';document.getElementById('hrFactoryFilter').value='';document.getElementById('hrDeptFilter').value='';renderHRData();});
+    on('hrSelectVisible',function(){document.querySelectorAll('.hrRowSelect').forEach(x=>x.checked=this.checked);});
+    on('hrSaveEditBtn',saveHRRecordEdit);on('hrCancelEditBtn',clearHRRecordEdit);
+    on('hrBulkEditBtn',bulkEditHRRecords);on('hrDeleteSelectedBtn',()=>deleteHRRecords('selected'));
+    on('hrDeleteFilteredBtn',()=>deleteHRRecords('filtered'));on('hrDeleteAllBtn',()=>deleteHRRecords('all'));
+    on('hrExportFilteredBtn',exportFilteredHRRecords);on('hrDocSaveBtn',saveEmployeeDocuments);
+    on('hrDetailClose',()=>{document.getElementById('hrDetailBox').style.display='none';});
   }
-
 
 
   function exportEmployeeWorkbook() {
@@ -314,41 +282,75 @@
     return groups;
   }
 
+  let hrVisibleRecords=[];
   function renderHRData() {
-    const body = document.querySelector('#hrDataTable tbody');
-    if (!body) return;
-    const filter = document.getElementById('hrStatusFilter').value || 'all';
-    const search = (document.getElementById('hrSearch').value || '').trim().toLowerCase();
-    const records = [];
-    getHRGroups(filter).forEach(function (g) {
-      (g.rows || []).forEach(function (r) { records.push({ record: r, statusLabel: g.label }); });
+    const body=document.querySelector('#hrDataTable tbody');if(!body)return;
+    const filter=document.getElementById('hrStatusFilter').value||'all';
+    const search=(document.getElementById('hrSearch').value||'').trim().toLowerCase();
+    const factoryFilter=document.getElementById('hrFactoryFilter').value||'';
+    const deptFilter=(document.getElementById('hrDeptFilter').value||'').trim().toLowerCase();
+    const records=[];getHRGroups(filter).forEach(g=>(g.rows||[]).forEach(r=>records.push({record:r,statusLabel:g.label,group:g.label==='عامل حالي'?'active':g.label==='مستقيل'?'former':g.label==='مستقيل قديم'?'formerOld':'unmatchedLeave'})));
+    const factories=Array.from(new Set(records.map(x=>String(x.record.factory||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'ar'));
+    const fs=document.getElementById('hrFactoryFilter'),old=fs.value;fs.innerHTML='<option value="">كل المصانع</option>';factories.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;fs.appendChild(o);});if(factories.includes(old))fs.value=old;
+    hrVisibleRecords=records.filter(item=>{const r=item.record;const hay=[r.code,r.name,r.factory,r.departmentCode,r.department,r.job,item.statusLabel].join(' ').toLowerCase();return (!search||hay.includes(search))&&(!factoryFilter||String(r.factory||'').trim()===factoryFilter)&&(!deptFilter||String(r.departmentCode||r.department||'').toLowerCase().includes(deptFilter));});
+    body.innerHTML='';
+    hrVisibleRecords.forEach(item=>{
+      const r=item.record,key=item.group+'|'+normCode(r.code),tr=document.createElement('tr');
+      const checkTd=document.createElement('td'),check=document.createElement('input');check.type='checkbox';check.className='hrRowSelect';check.dataset.key=key;check.style.width='auto';check.checked=window.hrSelectedKeys&&window.hrSelectedKeys.has(key);checkTd.appendChild(check);tr.appendChild(checkTd);
+      [r.code||'',r.name||'',r.factory||'',r.departmentCode||r.department||'',r.job||'',r.hireDate||'',item.statusLabel].forEach(v=>{const td=document.createElement('td');td.textContent=v==null?'':String(v);tr.appendChild(td);});
+      const detailTd=document.createElement('td'),detail=document.createElement('button');detail.className='btn-sec';detail.textContent='عرض';detail.addEventListener('click',()=>showHRDetails(r,item.statusLabel));detailTd.appendChild(detail);tr.appendChild(detailTd);
+      const editTd=document.createElement('td'),edit=document.createElement('button');edit.className='btn-blue';edit.textContent='تعديل';edit.addEventListener('click',()=>fillHRRecordEdit(r,item.group));editTd.appendChild(edit);tr.appendChild(editTd);
+      const delTd=document.createElement('td'),del=document.createElement('button');del.className='btn-danger';del.textContent='حذف';del.addEventListener('click',()=>{window.hrSelectedKeys=new Set([key]);deleteHRRecords('selected');});delTd.appendChild(del);tr.appendChild(delTd);body.appendChild(tr);
     });
-    const filtered = records.filter(function (item) {
-      const r = item.record;
-      const hay = [r.code, r.name, r.factory, r.departmentCode, r.job, item.statusLabel].join(' ').toLowerCase();
-      return !search || hay.includes(search);
-    });
-    body.innerHTML = '';
-    filtered.forEach(function (item) {
-      const r = item.record;
-      const tr = document.createElement('tr');
-      [r.code || '', r.name || '', r.factory || '', r.departmentCode || r.department || '', r.job || '', r.hireDate || '', item.statusLabel].forEach(function (v) {
-        const td = document.createElement('td'); td.textContent = v == null ? '' : String(v); tr.appendChild(td);
-      });
-      const td = document.createElement('td');
-      const btn = document.createElement('button');
-      btn.className = 'btn-blue'; btn.textContent = 'عرض';
-      btn.addEventListener('click', function () { showHRDetails(r, item.statusLabel); });
-      td.appendChild(btn); tr.appendChild(td);
-      const actionTd=document.createElement('td');
-      if(item.statusLabel==='عامل حالي') { const archive=document.createElement('button'); archive.className='btn-danger'; archive.textContent='إنهاء خدمة'; archive.addEventListener('click',function(){archiveHRRecord(r.code);}); actionTd.appendChild(archive); }
-      tr.appendChild(actionTd); body.appendChild(tr);
-    });
-    const summary = document.getElementById('hrDataSummary');
-    const count = function (k) { return (hrMaster[k] || []).length; };
-    summary.textContent = 'العاملون: ' + count('active') + ' | المستقيلون: ' + count('former') +
-      ' | المستقيلون قديم: ' + count('formerOld') + ' | سجلات إجازات غير مرتبطة: ' + count('unmatchedLeave') +
-      ' | نتائج البحث: ' + filtered.length;
+    body.querySelectorAll('.hrRowSelect').forEach(c=>c.addEventListener('change',()=>{window.hrSelectedKeys=window.hrSelectedKeys||new Set();if(c.checked)window.hrSelectedKeys.add(c.dataset.key);else window.hrSelectedKeys.delete(c.dataset.key);}));
+    const count=k=>(hrMaster[k]||[]).length,summary=document.getElementById('hrDataSummary');
+    summary.textContent='العاملون: '+count('active')+' | المستقيلون: '+count('former')+' | مستقيليون قديم: '+count('formerOld')+' | أكواد إجازات غير مرتبطة: '+count('unmatchedLeave')+' | نتائج الفلتر: '+hrVisibleRecords.length;
+    const selectAll=document.getElementById('hrSelectVisible');if(selectAll)selectAll.checked=hrVisibleRecords.length>0&&hrVisibleRecords.every(x=>(window.hrSelectedKeys||new Set()).has(x.group+'|'+normCode(x.record.code)));
+  }
+
+  window.hrSelectedKeys=window.hrSelectedKeys||new Set();
+  function clearHRRecordEdit(){['hrEditCode','hrEditName','hrEditFactory','hrEditDept','hrEditJob','hrEditHire'].forEach(id=>document.getElementById(id).value='');document.getElementById('hrEditType').value='';document.getElementById('hrEditGroup').value='active';document.getElementById('hrEditCode').disabled=false;window.hrEditingKey=null;}
+  function fillHRRecordEdit(r,group){document.getElementById('hrEditCode').value=r.code||'';document.getElementById('hrEditCode').disabled=true;document.getElementById('hrEditName').value=r.name||'';document.getElementById('hrEditFactory').value=r.factory||'';document.getElementById('hrEditDept').value=r.departmentCode||r.department||'';document.getElementById('hrEditJob').value=r.job||'';document.getElementById('hrEditHire').value=r.hireDate||'';document.getElementById('hrEditType').value=r.leaveTypeCode||'';document.getElementById('hrEditGroup').value=group;window.hrEditingKey=group+'|'+normCode(r.code);document.getElementById('hrEditName').focus();}
+  async function saveHRRecordEdit(){
+    const code=normCode(document.getElementById('hrEditCode').value),name=document.getElementById('hrEditName').value.trim();if(!code||!name)return alert('اكتب كود واسم الموظف');
+    const group=document.getElementById('hrEditGroup').value,oldKey=window.hrEditingKey;
+    let old=null,oldGroup='';
+    if(oldKey){const p=oldKey.split('|');oldGroup=p[0];old=(hrMaster[oldGroup]||[]).find(x=>normCode(x.code)===p.slice(1).join('|'));}
+    if(!old&&['active','former','formerOld'].some(k=>(hrMaster[k]||[]).some(x=>normCode(x.code)===code)))return alert('الكود موجود بالفعل في قائمة أخرى');
+    const record=Object.assign({},old||{code,fields:{}},{code,name,factory:document.getElementById('hrEditFactory').value.trim(),departmentCode:document.getElementById('hrEditDept').value.trim(),job:document.getElementById('hrEditJob').value.trim(),hireDate:document.getElementById('hrEditHire').value,leaveTypeCode:document.getElementById('hrEditType').value,leaveTypeLabel:document.getElementById('hrEditType').value==='migrant'?'مغترب':document.getElementById('hrEditType').value==='resident'?'مقيم':''});
+    if(old){hrMaster[oldGroup]=(hrMaster[oldGroup]||[]).filter(x=>normCode(x.code)!==code);}
+    hrMaster[group]=hrMaster[group]||[];const idx=hrMaster[group].findIndex(x=>normCode(x.code)===code);if(idx>=0)hrMaster[group][idx]=record;else hrMaster[group].push(record);
+    const emp=emps.find(x=>normCode(x.code)===code);
+    if(group==='active'&&/عبور|obour/i.test(record.factory)){
+      let deptId='';if(record.departmentCode){let d=depts.find(x=>normCode(x.name)===normCode(record.departmentCode));if(!d){d={id:'hrd_'+Date.now(),name:record.departmentCode,from:'08:00',to:'16:00',off:'Friday'};depts.push(d);}deptId=d.id;}
+      if(emp){emp.name=name;if(deptId)emp.dept=deptId;emp.active=true;if(record.hireDate)emp.hireDate=record.hireDate;if(record.leaveTypeCode)emp.leaveType=record.leaveTypeCode;}
+      else {emps.push({code,name,dept:deptId,from:'',to:'',active:true,hireDate:record.hireDate||'',leaveType:record.leaveTypeCode||'migrant'});}
+    }else if(emp){emp.active=false;}
+    await saveHrMaster();saveAll();clearHRRecordEdit();renderHRData();renderEmps();renderDaily();alert('تم حفظ بيانات العامل.');
+  }
+  async function deleteHRRecords(mode){
+    const keys=new Set();
+    if(mode==='selected'){(window.hrSelectedKeys||new Set()).forEach(k=>keys.add(k));}
+    else if(mode==='filtered')hrVisibleRecords.forEach(x=>keys.add(x.group+'|'+normCode(x.record.code)));
+    else ['active','former','formerOld'].forEach(g=>(hrMaster[g]||[]).forEach(r=>keys.add(g+'|'+normCode(r.code))));
+    if(!keys.size)return alert('لا توجد سجلات محددة للحذف');
+    const msg=mode==='all'?'سيتم حذف كل ملفات العاملين الحالية والمستقيلين من قاعدة الملفات. ستظل سجلات الحضور والإجازات التاريخية محفوظة، وسيتم استبعاد الموظفين المرتبطين من اليومية.':('سيتم حذف '+keys.size+' سجل من ملفات العاملين. ستظل الحركات التاريخية محفوظة.');
+    if(!confirm(msg+' هل تريد المتابعة؟'))return;
+    const codes=new Set();keys.forEach(k=>{const p=k.indexOf('|');codes.add(k.slice(p+1));const g=k.slice(0,p);hrMaster[g]=(hrMaster[g]||[]).filter(r=>normCode(r.code)!==k.slice(p+1));});
+    codes.forEach(code=>{const emp=emps.find(e=>normCode(e.code)===code);if(emp)emp.active=false;});
+    window.hrSelectedKeys.clear();await saveHrMaster();saveAll();renderHRData();renderEmps();renderDaily();
+  }
+  function bulkEditHRRecords(){
+    const keys=Array.from(window.hrSelectedKeys||[]);if(!keys.length)return alert('حدد الموظفين أولاً');
+    const factory=prompt('اكتب اسم المصنع الجديد. اتركه فارغًا للاحتفاظ بالحالي:');if(factory===null)return;
+    const dept=prompt('اكتب الإدارة الجديدة. اتركها فارغة للاحتفاظ بالحالي:');if(dept===null)return;
+    keys.forEach(k=>{const p=k.indexOf('|'),g=k.slice(0,p),code=k.slice(p+1),r=(hrMaster[g]||[]).find(x=>normCode(x.code)===code);if(!r)return;if(factory.trim())r.factory=factory.trim();if(dept.trim())r.departmentCode=dept.trim();});
+    saveHrMaster().then(()=>{renderHRData();alert('تم تحديث المصنع والإدارة للسجلات المحددة.');});
+  }
+  function exportFilteredHRRecords(){
+    if(!window.XLSX)return alert('مكتبة Excel لم تُحمّل');const rows=[['الكود','الاسم','المصنع','الإدارة','الوظيفة','تاريخ التعيين','الحالة','نوع الإجازة']];
+    hrVisibleRecords.forEach(x=>{const r=x.record;rows.push([r.code||'',r.name||'',r.factory||'',r.departmentCode||r.department||'',r.job||'',r.hireDate||'',x.statusLabel,r.leaveTypeLabel||r.leaveTypeCode||'']);});
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'نتائج الفلتر');XLSX.writeFile(wb,'نتائج_ملفات_العاملين.xlsx');
   }
 
   function showHRDetails(record, statusLabel) {
