@@ -146,7 +146,7 @@ tbody tr:hover{background:#eef8f6}
 <div style="min-width:150px"><label>تاريخ التعيين</label><input type="date" id="leaveHire"></div>
 <button class="btn-primary" onclick="saveLeaveProfile()">حفظ بيانات الإجازة</button>
 </div>
-<div class="small">المغترب: 5 أيام تُضاف يوم 26 من كل شهر، وتصبح 6 أيام من يناير إلى سبتمبر بعد إكمال 10 سنوات. المقيم: 21 يومًا سنويًا أو 30 بعد 10 سنوات، ويبدأ الاستحقاق بعد 6 أشهر.</div>
+<div class="small">المغترب: 5 أيام يوم 26 من كل شهر، وأول شهر بالتناسب؛ تصبح 6 أيام من يناير إلى سبتمبر بعد إكمال 10 سنوات. المقيم: منحة سنوية يوم 26 ديسمبر (21 يومًا، أو 30 بعد 10 سنوات) بعد 6 أشهر، مع تصفير المتبقي يوم 25 ديسمبر للتسوية المالية.</div>
 </div>
 <div class="bulk-bar">
 <strong>إضافة حركة إجازة:</strong>
@@ -523,8 +523,9 @@ function exportResidentSettlement(){
  const rows=[['سنة التسوية','تاريخ الإقفال','كود الموظف','اسم الموظف','تاريخ التعيين','الرصيد المتبقي حتى 25 ديسمبر','ملاحظات']];
  let total=0,count=0;
  emps.filter(e=>(e.leaveType||'migrant')==='resident').forEach(e=>{
-  const balance=ledgerBalance(e.code,closeDate);
-  if(balance>0.000001){rows.push([year,closeDate,e.code,e.name||'',e.hireDate||'',Number(balance.toFixed(2)),'رصيد مستحق للمراجعة والتسوية المالية']);total+=balance;count++;}
+  // Exclude this year's own closing entry so the exported figure is the balance immediately before settlement.
+  const balance=leaveLedger.filter(x=>x.code==e.code&&x.date<=closeDate&&!(x.kind==='year_close'&&x.date===closeDate)).reduce((sum,x)=>sum+(Number(x.add)||0)-(Number(x.deduct)||0),0);
+  if(balance>0.000001){rows.push([year,closeDate,e.code,e.name||'',e.hireDate||'',Number(balance.toFixed(2)),'الرصيد قبل التصفير؛ للمراجعة والتسوية المالية']);total+=balance;count++;}
  });
  rows.push(['','','','','','الإجمالي',Number(total.toFixed(2))]);
  const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:13},{wch:15},{wch:16},{wch:28},{wch:16},{wch:25},{wch:38}];
@@ -888,6 +889,7 @@ function exportExcel(){
 }
 renderDepts();renderEmps();
 dailyDate.value=new Date().toISOString().slice(0,10);
+const settlementNow=new Date();settlementYear.value=settlementNow.getFullYear()-(settlementNow.getMonth()<11||(settlementNow.getMonth()===11&&settlementNow.getDate()<25)?1:0);
 const today=new Date();const f=new Date(today);f.setDate(26);f.setMonth(f.getMonth()-1);const t=new Date(today);t.setDate(25);
 expFrom.value=f.toISOString().slice(0,10);expTo.value=t.toISOString().slice(0,10);repFrom.value=f.toISOString().slice(0,10);repTo.value=t.toISOString().slice(0,10);
 renderDaily();renderReportDepts();
