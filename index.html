@@ -168,7 +168,7 @@ tbody tr:hover{background:#eef8f6}
  <div class="small">الأعمدة المطلوبة: التاريخ، الكود، نوع الحركة (مدفوعة / بدون أجر / تسوية)، عدد الأيام، ملاحظات. التسوية تقبل قيمة موجبة للإضافة أو سالبة للخصم. المعاينة لا تحفظ أي بيانات. الحركات المستوردة تحدّث دفتر الرصيد فقط ولا تغيّر سجل الحضور اليومي.</div>
  <div id="leaveImportPreview" class="small"></div>
 </div>
-<div class="flex"><label>تاريخ احتساب الاستحقاق حتى</label><input type="date" id="accrualDate" style="width:160px"><button class="btn-blue" onclick="runLeaveAccrual()">احتساب الاستحقاقات حتى التاريخ</button><button class="btn-sec" onclick="exportLeaveLedger()">تصدير حركة الإجازات</button></div>
+<div class="flex"><label>تاريخ احتساب الاستحقاق حتى</label><input type="date" id="accrualDate" style="width:160px"><button class="btn-blue" onclick="runLeaveAccrual()">احتساب الاستحقاقات حتى التاريخ</button><button class="btn-sec" onclick="exportLeaveLedger()">تصدير حركة الإجازات</button><label class="small">سنة التسوية</label><input type="number" id="settlementYear" min="2000" max="2100" style="width:85px" value="2026"><button class="btn-warn" onclick="exportResidentSettlement()">تصدير رصيد المقيمين للتسوية</button></div>
 <div id="leaveBalances" class="summary"></div>
 <div style="overflow:auto;max-height:55vh"><table id="leaveTable"><thead><tr><th>التاريخ</th><th>الكود</th><th>الاسم</th><th>الحركة</th><th>إضافة</th><th>خصم</th><th>الرصيد بعد الحركة</th><th>ملاحظات</th></tr></thead><tbody></tbody></table></div>
 </div>
@@ -299,7 +299,72 @@ function absenceOrdinal(code,iso){
  }
  return count;
 }
-function ensureAccruals(asOf){const now=new Date();const todayIso=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');if(asOf>todayIso)asOf=todayIso;leaveLedger=leaveLedger.filter(x=>!(['accrual','year_close'].includes(x.kind)&&x.date>todayIso));let made=0;const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');emps.forEach(emp=>{if(!emp.hireDate)return;const type=emp.leaveType||'migrant';let cursor=new Date(emp.hireDate+'T12:00:00');cursor.setDate(26);if(iso(cursor)<emp.hireDate)cursor.setMonth(cursor.getMonth()+1);let guard=0;while(iso(cursor)<=asOf&&guard++<600){const date=iso(cursor);if(type=='resident'&&cursor.getMonth()==11&&cursor.getDate()==26&&!leaveLedger.some(x=>x.code==emp.code&&x.date==date&&x.kind=='year_close')){const prior=new Date(cursor);prior.setDate(25);const closed=ledgerBalance(emp.code,iso(prior));leaveLedger.push({id:'C'+Date.now()+Math.random(),date,code:emp.code,kind:'year_close',label:closed>0?'إقفال رصيد السنة للتسوية المالية':'إقفال السنة',add:0,deduct:Math.max(0,closed),note:'رصيد المقيم المتبقي يُقفل للتسوية المالية ولا يُرحّل'});}const exists=leaveLedger.some(x=>x.code==emp.code&&x.date==date&&x.kind=='accrual');if(!exists){let amount=0;if(type=='migrant'){const ten=yearsAt(emp,date)>=10;amount=ten&&cursor.getMonth()<=8?6:5;}else{const eligible=dateAddMonths(emp.hireDate,6);if(date>=eligible){const rate=yearsAt(emp,date)>=10?30:21;const periodStart=new Date(cursor);periodStart.setMonth(periodStart.getMonth()-1);periodStart.setDate(26);const periodEnd=new Date(cursor);periodEnd.setDate(25);const start=new Date(Math.max(periodStart.getTime(),new Date(eligible+'T12:00:00').getTime()));const totalDays=Math.round((periodEnd-periodStart)/86400000)+1;const eligibleDays=Math.max(0,Math.round((periodEnd-start)/86400000)+1);amount=rate/12*Math.min(1,eligibleDays/totalDays);}}if(amount>0){leaveLedger.push({id:'L'+Date.now()+Math.random(),date,code:emp.code,kind:'accrual',label:'استحقاق شهري',add:amount,deduct:0,note:type=='resident'?'استحقاق شهري بعد 6 أشهر، محسوب بالتناسب':'إضافة تلقائية يوم 26'});made++;}}cursor.setMonth(cursor.getMonth()+1);}});saveExtraModules();return made;}
+function ensureAccruals(asOf){
+ const now=new Date(),todayIso=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+ if(!asOf)asOf=todayIso;if(asOf>todayIso)asOf=todayIso;
+ const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+ const addDays=(v,n)=>{const d=new Date(v+'T12:00:00');d.setDate(d.getDate()+n);return iso(d);};
+ const daysBetween=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000)+1;
+ const maxDate=(a,b)=>a>b?a:b;
+ // Rebuild automatic entries deterministically; manual movements and opening balances remain untouched.
+ leaveLedger=leaveLedger.filter(x=>!['accrual','year_close'].includes(x.kind));
+ let made=0;
+ emps.forEach(emp=>{
+  if(!emp.hireDate||emp.hireDate>asOf)return;
+  const type=emp.leaveType||'migrant';
+  if(type==='resident'){
+   const hireYear=Number(emp.hireDate.slice(0,4)),lastYear=Number(asOf.slice(0,4));
+   for(let y=hireYear;y<=lastYear;y++){
+    const closeDate=y+'-12-25',grantDate=y+'-12-26',cycleStart=(y-1)+'-12-26';
+    if(closeDate>=emp.hireDate&&closeDate<=asOf){
+     const prior=ledgerBalance(emp.code,closeDate);
+     if(Math.abs(prior)>0.000001)leaveLedger.push({id:'AUTO-CLOSE-'+emp.code+'-'+closeDate,date:closeDate,code:emp.code,kind:'year_close',label:'إقفال رصيد المقيم في 25 ديسمبر',add:prior<0?Math.abs(prior):0,deduct:prior>0?prior:0,note:'تصفير الرصيد القديم للتسوية المالية؛ لا يُرحّل إلى السنة الجديدة'});
+    }
+    if(grantDate>asOf)continue;
+    const cycleDays=daysBetween(cycleStart,closeDate),eligibleDate=dateAddMonths(emp.hireDate,6);
+    let amount=0,base=0,uplift=0;
+    if(eligibleDate<=closeDate){
+     const eligibleStart=maxDate(cycleStart,eligibleDate);
+     const eligibleDays=Math.max(0,daysBetween(eligibleStart,closeDate));
+     base=21*Math.min(1,eligibleDays/cycleDays);
+     const tenDate=dateAddMonths(emp.hireDate,120);
+     if(tenDate<=closeDate){
+      if(tenDate<=cycleStart)uplift=9;
+      else{
+       const months=Math.max(0,Math.min(12,(Number(closeDate.slice(0,4))-Number(tenDate.slice(0,4)))*12+(Number(closeDate.slice(5,7))-Number(tenDate.slice(5,7)))+1));
+       uplift=9*months/12;
+      }
+     }
+     amount=base+uplift;
+    }
+    if(amount>0.000001){
+     leaveLedger.push({id:'AUTO-ACCRUAL-'+emp.code+'-'+grantDate,date:grantDate,code:emp.code,kind:'accrual',label:'استحقاق سنوي للمقيم',add:Number(amount.toFixed(4)),deduct:0,note:'منحة سنوية في 26 ديسمبر؛ الأساسي 21 يومًا بعد 6 أشهر، وزيادة 9 أيام بالتناسب الشهري عند إكمال 10 سنوات'});
+     made++;
+    }
+   }
+  }else{
+   let cursor=new Date(emp.hireDate+'T12:00:00');cursor.setDate(26);
+   if(iso(cursor)<=emp.hireDate)cursor.setMonth(cursor.getMonth()+1);
+   let first=true,guard=0;
+   while(iso(cursor)<=asOf&&guard++<600){
+    const due=iso(cursor),periodStart=dateAddMonths(due,-1),periodEnd=addDays(due,-1);
+    const ten=yearsAt(emp,due)>=10,rate=ten&&cursor.getMonth()<=8?6:5;
+    let amount=rate;
+    if(first){
+     const eligibleStart=maxDate(emp.hireDate,periodStart),eligibleDays=Math.max(0,daysBetween(eligibleStart,periodEnd)),periodDays=daysBetween(periodStart,periodEnd);
+     amount=periodDays?rate*eligibleDays/periodDays:0;
+    }
+    if(amount>0.000001){
+     leaveLedger.push({id:'AUTO-ACCRUAL-'+emp.code+'-'+due,date:due,code:emp.code,kind:'accrual',label:first?'استحقاق شهري أول بالتناسب':'استحقاق شهري للمغترب',add:Number(amount.toFixed(4)),deduct:0,note:first?'أول شهر محسوب بالتناسب من تاريخ التعيين حتى يوم 25':'إضافة تلقائية يوم 26؛ 5 أيام أو 6 بعد إكمال 10 سنوات من يناير إلى سبتمبر'});
+     made++;
+    }
+    first=false;cursor.setMonth(cursor.getMonth()+1);
+   }
+  }
+ });
+ leaveLedger.sort((a,b)=>a.date.localeCompare(b.date));
+ saveExtraModules();return made;
+}
 function addLeaveMovement(){
  const emp=emps.find(e=>e.code==leaveEmp.value),date=leaveDate.value,action=leaveAction.value,days=Number(leaveDays.value);
  if(!emp||!date||!Number.isFinite(days)||(action=='adjust'?days==0:days<=0))return alert('أكمل البيانات وتأكد من عدد الأيام');
@@ -447,6 +512,25 @@ function applyOpeningBalances(){
   added++;
  });
  saveAll();saveExtraModules();stagedOpeningBalances=[];document.getElementById('applyOpeningBalancesBtn').disabled=true;document.getElementById('openingBalancePreview').textContent='تم اعتماد '+added+' رصيد افتتاحي.';renderLeaveModule();
+}
+
+function exportResidentSettlement(){
+ const year=Number(document.getElementById('settlementYear').value);
+ if(!Number.isInteger(year)||year<2000||year>2100)return alert('أدخل سنة صحيحة');
+ const closeDate=year+'-12-25',now=new Date(),today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+ if(closeDate>today)return alert('لا يمكن اعتماد تسوية سنة لم يأتِ يوم 25 ديسمبر فيها بعد. صدّر الملف بعد إقفال اليوم.');
+ ensureAccruals(today);
+ const rows=[['سنة التسوية','تاريخ الإقفال','كود الموظف','اسم الموظف','تاريخ التعيين','الرصيد المتبقي حتى 25 ديسمبر','ملاحظات']];
+ let total=0,count=0;
+ emps.filter(e=>(e.leaveType||'migrant')==='resident').forEach(e=>{
+  const balance=ledgerBalance(e.code,closeDate);
+  if(balance>0.000001){rows.push([year,closeDate,e.code,e.name||'',e.hireDate||'',Number(balance.toFixed(2)),'رصيد مستحق للمراجعة والتسوية المالية']);total+=balance;count++;}
+ });
+ rows.push(['','','','','','الإجمالي',Number(total.toFixed(2))]);
+ const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:13},{wch:15},{wch:16},{wch:28},{wch:16},{wch:25},{wch:38}];
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'تسوية المقيمين');
+ XLSX.writeFile(wb,'تسوية_أرصدة_المقيمين_حتى_25-12-'+year+'.xlsx');
+ alert('تم تجهيز كشف '+count+' موظف مقيم بإجمالي '+total.toFixed(2)+' يوم. راجع الكشف قبل اعتماد أي تسوية مالية.');
 }
 function exportLeaveLedger(){const rows=[['التاريخ','الكود','الاسم','الحركة','إضافة','خصم','الرصيد بعد الحركة','ملاحظات']];leaveLedger.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{const e=emps.find(y=>y.code==x.code)||{};rows.push([x.date,x.code,e.name||'',x.label||x.kind,x.add||0,x.deduct||0,ledgerBalance(x.code,x.date),x.note||'']);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'حركة الإجازات');XLSX.writeFile(wb,'حركة_أرصدة_الإجازات.xlsx');}
 function downloadOxygenTemplate(){const rows=[['كود الموظف','التاريخ YYYY-MM-DD','بداية الوردية HH:MM','نهاية الوردية HH:MM','ساعات إضافي','معامل الإضافي','ملاحظات'],['467','2026-11-04','23:00','07:00','0','1','وردية ليلية']];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'ورديات');XLSX.writeFile(wb,'قالب_ورديات_الأكسجين.xlsx');}
