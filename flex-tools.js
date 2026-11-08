@@ -196,7 +196,7 @@ function buildSecurityRotation(){
    let endDate=p.friday;
    if(times[1]<=times[0])endDate=addDays(p.friday,1);
    const st=p.friday+'T'+times[0],en=endDate+'T'+times[1];
-   if(variableShifts.some(x=>String(x.code)===String(code)&&x.start===st))return alert('توجد وردية متغيرة محفوظة بالفعل في '+st+'؛ لم يتم إنشاء الدورة.');
+   if(variableShifts.some(x=>String(x.code)===String(code)&&x.start&&x.start.slice(0,10)===p.friday))return alert('توجد وردية متغيرة محفوظة بالفعل في '+st+'؛ لم يتم إنشاء الدورة.');
   }
  }
  if(!confirm('سيتم إنشاء '+plans.length+' جدول أسبوعي للموظف '+emp.name+'، مع ورديات الجمعة الخاصة وتكرار الدورة '+cycles+' مرة. لن تُحذف أي سجلات حضور سابقة. متابعة؟'))return;
