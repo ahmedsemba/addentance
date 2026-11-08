@@ -342,7 +342,7 @@ function downloadLeaveImportTemplate(){
  const rows=[['التاريخ YYYY-MM-DD','الكود','نوع الحركة','عدد الأيام','ملاحظات'],['2026-10-01','ضع كود الموظف','مدفوعة','1','مثال — احذف صف المثال قبل الرفع'],['2026-10-05','ضع كود الموظف','بدون أجر','1','مثال'],['2026-10-10','ضع كود الموظف','تسوية','-0.5','مثال خصم نصف يوم']];
  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'حركات الإجازات');XLSX.writeFile(wb,'قالب_استيراد_حركات_الإجازات.xlsx');
 }
-function previewLeaveImport(){
+async function previewLeaveImport(){
  const file=document.getElementById('leaveImportFile').files[0],box=document.getElementById('leaveImportPreview'),btn=document.getElementById('applyLeaveImportBtn');
  stagedLeaveImport=[];btn.disabled=true;box.textContent='';
  if(!file)return alert('اختار ملف Excel أو CSV');
@@ -370,11 +370,11 @@ function previewLeaveImport(){
    const r=rows[i];if(!r||!r.some(v=>String(v??'').trim()))continue;
    const date=dateOf(r[ix.date]),code=String(r[ix.code]??'').trim(),kind=kindOf(r[ix.type]),days=Number(String(r[ix.days]??'').replace(',','.')),note=ix.note>=0?String(r[ix.note]??'').trim():'';
    const emp=emps.find(e=>String(e.code)===code);
-   if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!code||!emp||!kind||!Number.isFinite(days)||(kind==='adjust'?days===0:days<=0)){invalid++;continue;}
+   if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date+'T12:00:00').toISOString().slice(0,10)!==date||!code||!emp||!kind||!Number.isFinite(days)||(kind==='adjust'?days===0:days<=0)){invalid++;continue;}
    const add=kind==='adjust'&&days>0?days:0,deduct=kind==='adjust'&&days<0?Math.abs(days):(kind==='paid'?days:0);
    const sig=[date,code,kind,add,deduct,note].join('|');
    if(seen.has(sig)||leaveLedger.some(x=>x.date===date&&String(x.code)===code&&x.kind===kind&&Number(x.add||0)===add&&Number(x.deduct||0)===deduct&&String(x.note||'')===note)){duplicate++;continue;}
-   seen.add(sig);stagedLeaveImport.push({date,code,kind,add,deduct,note,label:kind==='paid'?'خصم إجازة مدفوعة (استيراد)':kind==='unpaid'?'إجازة بدون أجر (استيراد)':'تسوية رصيد (استيراد)'});
+   seen.add(sig);stagedLeaveImport.push({date,code,kind,days,add,deduct,note,label:kind==='paid'?'خصم إجازة مدفوعة (استيراد)':kind==='unpaid'?'إجازة بدون أجر (استيراد)':'تسوية رصيد (استيراد)'});
   }
   box.innerHTML='<b>نتيجة المعاينة:</b> صالح للإضافة: '+stagedLeaveImport.length+' | مكرر سيتم تجاهله: '+duplicate+' | صفوف غير صحيحة/كود غير موجود: '+invalid+'.<br>راجع الملف، ثم اضغط «اعتماد الحركات».';
   btn.disabled=stagedLeaveImport.length===0;
@@ -384,7 +384,7 @@ function applyLeaveImport(){
  if(!stagedLeaveImport.length)return alert('اعمل معاينة للملف أولاً');
  if(!confirm('سيتم إضافة '+stagedLeaveImport.length+' حركة إلى دفتر الإجازات فقط. لن يتم تعديل الحضور اليومي. هل تعتمد؟'))return;
  const stamp=Date.now();
- stagedLeaveImport.forEach((x,i)=>leaveLedger.push({id:'IMP'+stamp+'_'+i,date:x.date,code:x.code,kind:x.kind,label:x.label,add:x.add,deduct:x.deduct,note:x.kind==='unpaid'?'عدد الأيام بدون أجر: '+(Number(x.add||0)+Number(x.deduct||0)||'راجع الملاحظة')+(x.note?' | '+x.note:''):x.note}));
+ stagedLeaveImport.forEach((x,i)=>leaveLedger.push({id:'IMP'+stamp+'_'+i,date:x.date,code:x.code,kind:x.kind,label:x.label,add:x.add,deduct:x.deduct,note:x.kind==='unpaid'?'عدد الأيام بدون أجر: '+x.days+(x.note?' | '+x.note:''):x.note}));
  saveExtraModules();stagedLeaveImport=[];document.getElementById('leaveImportFile').value='';document.getElementById('leaveImportPreview').textContent='تم اعتماد الحركات. راجع الأرصدة في الجدول.';document.getElementById('applyLeaveImportBtn').disabled=true;renderLeaveModule();
 }
 function exportLeaveLedger(){const rows=[['التاريخ','الكود','الاسم','الحركة','إضافة','خصم','الرصيد بعد الحركة','ملاحظات']];leaveLedger.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{const e=emps.find(y=>y.code==x.code)||{};rows.push([x.date,x.code,e.name||'',x.label||x.kind,x.add||0,x.deduct||0,ledgerBalance(x.code,x.date),x.note||'']);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'حركة الإجازات');XLSX.writeFile(wb,'حركة_أرصدة_الإجازات.xlsx');}
