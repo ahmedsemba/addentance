@@ -114,7 +114,7 @@
       '</div>' +
       '<div id="hrDataSummary" class="summary"></div>' +
       '<div style="overflow:auto;max-height:55vh"><table id="hrDataTable"><thead><tr>' +
-        '<th>الكود</th><th>الاسم</th><th>المصنع / الفرع</th><th>كود الإدارة</th><th>الوظيفة</th><th>تاريخ التعيين</th><th>الحالة</th><th>التفاصيل</th>' +
+        '<th>الكود</th><th>الاسم</th><th>المصنع / الفرع</th><th>كود الإدارة</th><th>الوظيفة</th><th>تاريخ التعيين</th><th>الحالة</th><th>التفاصيل</th><th>إجراء</th>' +
       '</tr></thead><tbody></tbody></table></div>' +
       '<div id="hrDetailBox" class="edit-box" style="display:none;margin-top:12px"><div class="flex" style="justify-content:space-between"><b id="hrDetailTitle">تفاصيل العامل</b><button class="btn-sec" id="hrDetailClose">إغلاق</button></div><div style="overflow:auto;max-height:50vh"><table id="hrDetailTable"><tbody></tbody></table></div><hr><b>مستندات الموظف (تُحفظ على هذا الجهاز فقط)</b><div class="flex"><input type="file" id="hrDocFiles" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"><button class="btn-primary" id="hrDocSaveBtn">حفظ المستندات</button></div><div id="hrDocList" class="small"></div></div>';
 
@@ -249,6 +249,25 @@
     } catch(err){box.textContent='تعذر تحميل المستندات: '+err.message;}
   }
 
+
+  async function archiveHRRecord(code) {
+    const record=findMasterRecord(code);
+    if(!record)return;
+    const kind=prompt('اكتب نوع إنهاء الخدمة: استقالة أو فصل');
+    if(!kind)return;
+    const k=/فصل|رفد|dismiss/i.test(kind)?'فصل':'استقالة';
+    const reason=prompt('سبب إنهاء الخدمة (اختياري):')||'';
+    const date=prompt('تاريخ آخر يوم عمل بصيغة YYYY-MM-DD:',new Date().toISOString().slice(0,10));
+    if(date&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)){alert('صيغة التاريخ غير صحيحة');return;}
+    if(!confirm('سيُنقل الموظف إلى سجل المستقيلين/إنهاء الخدمة، وسيُستبعد من اليومية الجديدة مع الاحتفاظ بسجل حضوره السابق. متابعة؟'))return;
+    hrMaster.active=(hrMaster.active||[]).filter(x=>normCode(x.code)!==normCode(code));
+    record.status=k;record.reason=reason;record.terminationDate=date||new Date().toISOString().slice(0,10);
+    hrMaster.former=hrMaster.former||[];hrMaster.former.push(record);
+    const emp=emps.find(x=>normCode(x.code)===normCode(code));
+    if(emp)emp.active=false;
+    await saveHrMaster();saveAll();renderHRData();if(typeof renderEmps==='function')renderEmps();if(typeof renderDaily==='function')renderDaily();
+  }
+
   function getHRGroups(filter) {
     const groups = [];
     if (filter === 'all' || filter === 'active') groups.push({ label: 'عامل حالي', rows: hrMaster.active || [] });
@@ -283,7 +302,10 @@
       const btn = document.createElement('button');
       btn.className = 'btn-blue'; btn.textContent = 'عرض';
       btn.addEventListener('click', function () { showHRDetails(r, item.statusLabel); });
-      td.appendChild(btn); tr.appendChild(td); body.appendChild(tr);
+      td.appendChild(btn); tr.appendChild(td);
+      const actionTd=document.createElement('td');
+      if(item.statusLabel==='عامل حالي') { const archive=document.createElement('button'); archive.className='btn-danger'; archive.textContent='إنهاء خدمة'; archive.addEventListener('click',function(){archiveHRRecord(r.code);}); actionTd.appendChild(archive); }
+      tr.appendChild(actionTd); body.appendChild(tr);
     });
     const summary = document.getElementById('hrDataSummary');
     const count = function (k) { return (hrMaster[k] || []).length; };
@@ -534,5 +556,7 @@
   loadHrMaster().then(renderHRData);
   window.renderHRData = renderHRData;
   window.importHRPackage = importHRPackage;
+  window.importEmployeeWorkbook = importEmployeeWorkbook;
+  window.archiveHRRecord = archiveHRRecord;
   window.exportHRPackage = exportHRPackage;
 })();
