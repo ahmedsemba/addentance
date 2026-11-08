@@ -81,8 +81,66 @@ function enableLeaveMovementActions(){
  wrapped.__flexWrapped=true;window.renderLeaveModule=wrapped;
 }
 
-function init(){tableIds.forEach(id=>attach(document.getElementById(id)));enableLeaveMovementActions();}
+function init(){tableIds.forEach(id=>attach(document.getElementById(id)));enableLeaveMovementActions();enableScheduleEditing();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 const root=document.querySelector('.container')||document.body;
 new MutationObserver(init).observe(root,{childList:true,subtree:true});
 })();
+function enableScheduleEditing(){
+ if(typeof window.renderRosterTable==='function'&&!window.renderRosterTable.__flexWrapped){
+  const original=window.renderRosterTable;
+  const wrapped=function(){
+   original();
+   const table=document.getElementById('rosterTable'),body=table&&table.querySelector('tbody');if(!body)return;
+   const rows=weeklyRosters.slice();
+   rows.forEach((r,index)=>{
+    const tr=body.rows[index];if(!tr)return;
+    const td=document.createElement('td');
+    const edit=document.createElement('button');edit.type='button';edit.className='btn-blue';edit.textContent='تعديل';
+    edit.onclick=function(){
+     const start=prompt('بداية الأسبوع YYYY-MM-DD',r.start);if(start===null)return;
+     if(!/^\d{4}-\d{2}-\d{2}$/.test(start))return alert('صيغة التاريخ غير صحيحة');
+     const shift=prompt('الوردية بصيغة HH:MM|HH:MM',r.from+'|'+r.to);if(shift===null)return;
+     if(!/^\d{2}:\d{2}\|\d{2}:\d{2}$/.test(shift))return alert('صيغة الوردية غير صحيحة');
+     const off=prompt('يوم الراحة: Friday / Saturday / Sunday / Monday / Tuesday / Wednesday / Thursday / None',r.off||'Friday');if(off===null)return;
+     if(!['Friday','Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','None'].includes(off))return alert('يوم الراحة غير صحيح');
+     const p=shift.split('|'),d=new Date(start+'T12:00:00');d.setDate(d.getDate()+6);
+     const end=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+     if(weeklyRosters.some(x=>x.id!==r.id&&x.code===r.code&&x.start<=end&&x.end>=start))return alert('يوجد جدول آخر متداخل لهذا الموظف');
+     r.start=start;r.end=end;r.from=p[0];r.to=p[1];r.off=off;saveExtraModules();wrapped();
+    };
+    td.appendChild(edit);tr.appendChild(td);
+   });
+   const head=table.querySelector('thead tr');if(head&&!head.dataset.flexEdit){const th=document.createElement('th');th.textContent='تعديل';head.appendChild(th);head.dataset.flexEdit='1';}
+  };
+  wrapped.__flexWrapped=true;window.renderRosterTable=wrapped;
+ }
+ if(typeof window.renderShiftTable==='function'&&!window.renderShiftTable.__flexWrapped){
+  const original=window.renderShiftTable;
+  const wrapped=function(){
+   original();
+   const table=document.getElementById('shiftTable'),body=table&&table.querySelector('tbody');if(!body)return;
+   const rows=variableShifts.slice().sort((a,b)=>a.start.localeCompare(b.start));
+   rows.forEach((s,index)=>{
+    const tr=body.rows[index];if(!tr)return;
+    const td=document.createElement('td');
+    const edit=document.createElement('button');edit.type='button';edit.className='btn-blue';edit.textContent='تعديل';
+    edit.onclick=function(){
+     const start=prompt('بداية الوردية YYYY-MM-DDTHH:MM',s.start);if(start===null)return;
+     const end=prompt('نهاية الوردية YYYY-MM-DDTHH:MM',s.end);if(end===null)return;
+     if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start)||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(end)||new Date(end)<=new Date(start))return alert('راجع تاريخ ووقت بداية ونهاية الوردية');
+     const extraText=prompt('ساعات الإضافي',String(s.extra||0));if(extraText===null)return;
+     const extra=Number(extraText);if(!Number.isFinite(extra)||extra<0)return alert('قيمة الإضافي غير صحيحة');
+     const factorText=prompt('معامل الإضافي: 1 أو 2',String(s.factor||1));if(factorText===null)return;
+     if(!['1','2'].includes(factorText))return alert('المعامل يجب أن يكون 1 أو 2');
+     const note=prompt('الملاحظات',s.note||'');if(note===null)return;
+     s.start=start;s.end=end;s.hours=(new Date(end)-new Date(start))/3600000;s.extra=extra;s.factor=Number(factorText);s.note=note;
+     saveExtraModules();wrapped();
+    };
+    td.appendChild(edit);tr.appendChild(td);
+   });
+   const head=table.querySelector('thead tr');if(head&&!head.dataset.flexEdit){const th=document.createElement('th');th.textContent='تعديل';head.appendChild(th);head.dataset.flexEdit='1';}
+  };
+  wrapped.__flexWrapped=true;window.renderShiftTable=wrapped;
+ }
+}
