@@ -258,7 +258,7 @@
     const k=/فصل|رفد|dismiss/i.test(kind)?'فصل':'استقالة';
     const reason=prompt('سبب إنهاء الخدمة (اختياري):')||'';
     const date=prompt('تاريخ آخر يوم عمل بصيغة YYYY-MM-DD:',new Date().toISOString().slice(0,10));
-    if(date&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)){alert('صيغة التاريخ غير صحيحة');return;}
+    if(date&&!/^\d{4}-\d{2}-\d{2}$/.test(date)){alert('صيغة التاريخ غير صحيحة');return;}
     if(!confirm('سيُنقل الموظف إلى سجل المستقيلين/إنهاء الخدمة، وسيُستبعد من اليومية الجديدة مع الاحتفاظ بسجل حضوره السابق. متابعة؟'))return;
     hrMaster.active=(hrMaster.active||[]).filter(x=>normCode(x.code)!==normCode(code));
     record.status=k;record.reason=reason;record.terminationDate=date||new Date().toISOString().slice(0,10);
