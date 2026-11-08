@@ -339,7 +339,7 @@ function runLeaveAccrual(){const d=accrualDate.value;if(!d)return alert('اخت�
 function renderLeaveModule(){fillModuleEmployees();const emp=emps.find(e=>e.code==leaveEmp.value);if(emp){leaveType.value=emp.leaveType||'migrant';leaveHire.value=emp.hireDate||'';}const now=new Date();const todayIso=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');if(!accrualDate.value)accrualDate.value=todayIso;const asOf=accrualDate.value||todayIso;ensureAccruals(asOf);const balDiv=document.getElementById('leaveBalances');if(balDiv){let html='<b>الأرصدة حتى '+asOf+'</b><br>';emps.forEach(e=>{const b=ledgerBalance(e.code,asOf);html+='<div>'+e.code+' - '+e.name+' ('+((e.leaveType||'migrant')=='migrant'?'مغترب':'مقيم')+'): <b>'+b.toFixed(2)+' يوم</b></div>';});balDiv.innerHTML=html;}const tb=document.querySelector('#leaveTable tbody');if(tb){tb.innerHTML='';leaveLedger.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{const e=emps.find(y=>y.code==x.code)||{};const bal=ledgerBalance(x.code,x.date);const tr=document.createElement('tr');[x.date,x.code,e.name||'',x.label||x.kind,Number(x.add||0).toFixed(2),Number(x.deduct||0).toFixed(2),bal.toFixed(2),x.note||''].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});tb.appendChild(tr);});}}
 let stagedLeaveImport=[];
 function downloadLeaveImportTemplate(){
- const rows=[['التاريخ YYYY-MM-DD','الكود','نوع الحركة','عدد الأيام','ملاحظات'],['2026-10-01','ضع كود الموظف','مدفوعة','1','مثال — احذف صف المثال قبل الرفع'],['2026-10-05','ضع كود الموظف','بدون أجر','1','مثال'],['2026-10-10','ضع كود الموظف','تسوية','-0.5','مثال خصم نصف يوم']];
+ const rows=[['التاريخ','الكود','نوع الحركة','عدد الأيام','ملاحظات'],['2026-10-01','ضع كود الموظف','مدفوعة','1','مثال — احذف صف المثال قبل الرفع'],['2026-10-05','ضع كود الموظف','بدون أجر','1','مثال'],['2026-10-10','ضع كود الموظف','تسوية','-0.5','مثال خصم نصف يوم']];
  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'حركات الإجازات');XLSX.writeFile(wb,'قالب_استيراد_حركات_الإجازات.xlsx');
 }
 async function previewLeaveImport(){
@@ -358,10 +358,10 @@ async function previewLeaveImport(){
    rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
   }
   const norm=s=>String(s||'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()]/g,'');
-  const headAt=rows.findIndex(r=>{const h=r.map(norm);return h.some(x=>['التاريخ','date'].includes(x))&&h.some(x=>['الكود','كود','رقم الموظف','employeeid'].includes(x))&&h.some(x=>['عدد الايام','الايام','days'].includes(x));});
+  const headAt=rows.findIndex(r=>{const h=r.map(norm);return h.some(x=>x==='date'||x.startsWith('التاريخ'))&&h.some(x=>['الكود','كود','رقم الموظف','employeeid'].includes(x))&&h.some(x=>['عدد الايام','الايام','days'].includes(x));});
   if(headAt<0)throw new Error('لم أجد عناوين الأعمدة المطلوبة: التاريخ، الكود، عدد الأيام');
   const h=rows[headAt].map(norm),col=names=>h.findIndex(x=>names.includes(x));
-  const ix={date:col(['التاريخ','date']),code:col(['الكود','كود','رقم الموظف','employeeid']),type:col(['نوع الحركه','الحركه','النوع','type']),days:col(['عدد الايام','الايام','days']),note:col(['ملاحظات','ملاحظه','note'])};
+  const ix={date:h.findIndex(x=>x==='date'||x.startsWith('التاريخ')),code:col(['الكود','كود','رقم الموظف','employeeid']),type:col(['نوع الحركه','الحركه','النوع','type']),days:col(['عدد الايام','الايام','days']),note:col(['ملاحظات','ملاحظه','note'])};
   if(ix.type<0)throw new Error('عمود نوع الحركة مطلوب');
   const dateOf=v=>{if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');if(typeof v==='number'&&v>10000){const d=XLSX.SSF.parse_date_code(v);return d?d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'):'';}const s=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const p=s.split(/[\/.-]/);if(p.length===3)return p[0].length===4?p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0'):p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');return '';};
   const kindOf=v=>{const t=norm(v);if(['مدفوعه','اجازه مدفوعه','paid','annual','سنويه'].includes(t)||t.includes('مدفوع'))return 'paid';if(['بدوناجر','غيرمدفوعه','unpaid'].includes(t)||t.includes('بدوناجر'))return 'unpaid';if(['تسويه','تعديل','adjust','رصيد'].includes(t)||t.includes('تسويه'))return 'adjust';return '';};
@@ -372,8 +372,9 @@ async function previewLeaveImport(){
    const emp=emps.find(e=>String(e.code)===code);
    if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date+'T12:00:00').toISOString().slice(0,10)!==date||!code||!emp||!kind||!Number.isFinite(days)||(kind==='adjust'?days===0:days<=0)){invalid++;continue;}
    const add=kind==='adjust'&&days>0?days:0,deduct=kind==='adjust'&&days<0?Math.abs(days):(kind==='paid'?days:0);
-   const sig=[date,code,kind,add,deduct,note].join('|');
-   if(seen.has(sig)||leaveLedger.some(x=>x.date===date&&String(x.code)===code&&x.kind===kind&&Number(x.add||0)===add&&Number(x.deduct||0)===deduct&&String(x.note||'')===note)){duplicate++;continue;}
+   const storedNote=kind==='unpaid'?'عدد الأيام بدون أجر: '+days+(note?' | '+note:''):note;
+   const sig=[date,code,kind,add,deduct,storedNote].join('|');
+   if(seen.has(sig)||leaveLedger.some(x=>x.date===date&&String(x.code)===code&&x.kind===kind&&Number(x.add||0)===add&&Number(x.deduct||0)===deduct&&String(x.note||'')===storedNote)){duplicate++;continue;}
    seen.add(sig);stagedLeaveImport.push({date,code,kind,days,add,deduct,note,label:kind==='paid'?'خصم إجازة مدفوعة (استيراد)':kind==='unpaid'?'إجازة بدون أجر (استيراد)':'تسوية رصيد (استيراد)'});
   }
   box.innerHTML='<b>نتيجة المعاينة:</b> صالح للإضافة: '+stagedLeaveImport.length+' | مكرر سيتم تجاهله: '+duplicate+' | صفوف غير صحيحة/كود غير موجود: '+invalid+'.<br>راجع الملف، ثم اضغط «اعتماد الحركات».';
