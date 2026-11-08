@@ -89,7 +89,7 @@
       '<h3>ملفات العاملين</h3>' +
       '<div class="edit-box">' +
         '<b>1) استيراد ملف العاملين من Excel</b>' +
-        '<div class="flex" style="margin-top:8px"><input type="file" id="hrExcelFile" accept=".xlsx,.xls,.csv" style="max-width:360px"><button class="btn-primary" id="hrExcelImportBtn">معاينة واستيراد العاملين</button></div>' +
+        '<div class="flex" style="margin-top:8px"><input type="file" id="hrExcelFile" accept=".xlsx,.xls,.csv" style="max-width:360px"><button class="btn-primary" id="hrExcelImportBtn">معاينة ودمج العاملين</button><button class="btn-danger" id="hrExcelReplaceBtn">استبدال قائمة العاملين بالكامل</button></div>' +
         '<div class="small">يدعم ملف الشركة متعدد الشيتات مثل: في العمل، المستقيلين، والمستقيلين قديم. تتم المطابقة بكود الموظف، وتُحفظ كل بيانات المصنع. موظفو العبور فقط يمكن ربطهم بشاشة الحضور.</div>' +
         '<div id="hrExcelImportMsg" class="small" style="margin-top:6px"></div>' +
         '<hr style="border:0;border-top:1px solid #e5edf1;margin:14px 0">' +
@@ -120,7 +120,8 @@
       '<div id="hrDetailBox" class="edit-box" style="display:none;margin-top:12px"><div class="flex" style="justify-content:space-between"><b id="hrDetailTitle">تفاصيل العامل</b><button class="btn-sec" id="hrDetailClose">إغلاق</button></div><div style="overflow:auto;max-height:50vh"><table id="hrDetailTable"><tbody></tbody></table></div><hr><b>مستندات الموظف (تُحفظ على هذا الجهاز فقط)</b><div class="flex"><input type="file" id="hrDocFiles" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"><button class="btn-primary" id="hrDocSaveBtn">حفظ المستندات</button></div><div id="hrDocList" class="small"></div></div>';
 
     container.appendChild(panel);
-    document.getElementById('hrExcelImportBtn').addEventListener('click', importEmployeeWorkbook);
+    document.getElementById('hrExcelImportBtn').addEventListener('click', function () { importEmployeeWorkbook(false); });
+    document.getElementById('hrExcelReplaceBtn').addEventListener('click', function () { importEmployeeWorkbook(true); });
     document.getElementById('hrImportBtn').addEventListener('click', importHRPackage);
     document.getElementById('hrExportBtn').addEventListener('click', exportHRPackage);
     document.getElementById('hrExportExcelBtn').addEventListener('click', exportEmployeeWorkbook);
@@ -169,7 +170,7 @@
     if(p.length===3) return p[0].length===4 ? p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0') : p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');
     return '';
   }
-  async function importEmployeeWorkbook() {
+  async function importEmployeeWorkbook(replaceExisting) {
     const input=document.getElementById('hrExcelFile'), msg=document.getElementById('hrExcelImportMsg');
     const file=input && input.files && input.files[0];
     if(!file){alert('اختار ملف العاملين Excel أولاً');return;}
@@ -212,8 +213,22 @@
       if(!staged.length) throw new Error('لم أجد صفوفًا بعناوين مفهومة. تأكد من وجود عمودي كود الموظف والاسم.');
       const counts={active:0,former:0,formerOld:0};
       staged.forEach(x=>counts[x.group]++);
-      msg.textContent='معاينة: عاملون '+counts.active+' | مستقيليون '+counts.former+' | مستقيليون قديم '+counts.formerOld+' | صفوف غير مقروءة '+skipped+'. اضغط مرة أخرى للاعتماد.';
-      if(!confirm('تمت قراءة الملف. سيتم دمج '+staged.length+' سجل حسب كود الموظف مع الاحتفاظ بالبيانات الحالية. هل تعتمد الاستيراد؟')) return;
+      msg.textContent='معاينة: عاملون '+counts.active+' | مستقيليون '+counts.former+' | مستقيليون قديم '+counts.formerOld+' | صفوف غير مقروءة '+skipped+'. '+(replaceExisting?'سيتم استبدال القوائم الحالية.':'سيتم الدمج مع الموجود.')+' راجع الأعداد قبل الاعتماد.';
+      if (replaceExisting) {
+        const warning = 'تنبيه مهم: سيتم استبدال قوائم ملفات العاملين الحالية بالكامل بالملف الجديد، بما فيها سجلات المستقيلين غير الموجودة في الملف. سيتم تنزيل نسخة احتياطية تلقائيًا قبل الاستبدال. لن يتم حذف سجلات الحضور والبصمة أو حركات وأرصدة الإجازات أو مستندات الموظفين. هل تريد المتابعة؟';
+        if (!confirm('تمت قراءة '+staged.length+' سجل. '+warning)) return;
+        exportHRPackage();
+        hrMaster = {
+          active: staged.filter(x=>x.group==='active').map(x=>x.record),
+          former: staged.filter(x=>x.group==='former').map(x=>x.record),
+          formerOld: staged.filter(x=>x.group==='formerOld').map(x=>x.record),
+          unmatchedLeave: hrMaster.unmatchedLeave || []
+        };
+        // Keep old attendance identities for historical reports, but exclude them from new daily work.
+        emps.forEach(emp=>{ emp.active=false; });
+      } else {
+        if(!confirm('تمت قراءة الملف. سيتم دمج '+staged.length+' سجل حسب كود الموظف مع الاحتفاظ بالبيانات الحالية. هل تعتمد الاستيراد؟')) return;
+      }
       staged.forEach(({group,record})=>{
         ['active','former','formerOld'].forEach(k=>{hrMaster[k]=(hrMaster[k]||[]).filter(x=>normCode(x.code)!==normCode(record.code));});
         hrMaster[group]=hrMaster[group]||[];
@@ -227,14 +242,14 @@
             deptId=d.id;
           }
           let emp=emps.find(x=>normCode(x.code)===normCode(record.code));
-          if(!emp){emp={code:record.code,name:record.name,dept:deptId,from:'',to:''};emps.push(emp);}
-          else {emp.name=record.name;if(deptId)emp.dept=deptId;}
+          if(!emp){emp={code:record.code,name:record.name,dept:deptId,from:'',to:'',active:true};emps.push(emp);}
+          else {emp.name=record.name;if(deptId)emp.dept=deptId;emp.active=true;}
           if(record.hireDate)emp.hireDate=record.hireDate;
           if(record.leaveTypeCode)emp.leaveType=record.leaveTypeCode;
         }
       });
       await saveHrMaster(); saveAll(); renderHRData(); renderEmps();
-      msg.textContent='تم الاستيراد بنجاح: '+staged.length+' سجل. تم تحديث قائمة حضور العبور للموظفين الذين ظهر أن مصنعهم «العبور» فقط. الصفوف غير المقروءة: '+skipped+'.';
+      msg.textContent=(replaceExisting?'تم استبدال قوائم العاملين بنجاح. ':'تم الدمج بنجاح. ')+'عدد السجلات: '+staged.length+'. تم تحديث قائمة حضور العبور للموظفين الحاليين المطابقين فقط. تم الاحتفاظ بسجلات الحضور والإجازات والمستندات. الصفوف غير المقروءة: '+skipped+'.';
     } catch(err) { msg.textContent='تعذر الاستيراد: '+err.message; alert('تعذر استيراد ملف العاملين: '+err.message); }
   }
   async function saveEmployeeDocuments() {
