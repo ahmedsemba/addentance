@@ -180,7 +180,7 @@ tbody tr:hover{background:#eef8f6}
 <div class="edit-box"><b>تصدير قائمة الموظفين والإدارات</b><div class="flex"><button class="btn-blue" onclick="exportEmployeesList()">تنزيل Excel الموظفين</button></div><div class="small">يشمل الكود والاسم والإدارة والموعد والراحة وتاريخ التعيين ونوع الإجازة المسجل.</div></div>
 <div class="edit-box"><b>تصدير الإجازات</b><div class="flex"><button class="btn-blue" onclick="exportLeaveLedger()">تنزيل حركة الإجازات Excel</button></div><div class="small">هذا تقرير للمراجعة، وليس ملف استيراد مباشر.</div></div>
 <div class="edit-box"><b>نسخة احتياطية كاملة</b><div class="flex"><button class="btn-primary" onclick="exportFullBackup()">تنزيل نسخة JSON كاملة</button></div><div class="small">تحتوي الموظفين والإدارات والحضور والإجازات والورديات. احتفظ بها في مكان آمن.</div></div>
-</div></div>
+</div>
 </div>
 <script>
 let depts=JSON.parse(localStorage.getItem('att_depts_v81')||localStorage.getItem('att_depts_v8')||'[]');
