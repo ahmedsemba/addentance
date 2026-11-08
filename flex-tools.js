@@ -81,7 +81,7 @@ function enableLeaveMovementActions(){
  wrapped.__flexWrapped=true;window.renderLeaveModule=wrapped;
 }
 
-function init(){tableIds.forEach(id=>attach(document.getElementById(id)));enableLeaveMovementActions();enableScheduleEditing();}
+function init(){tableIds.forEach(id=>attach(document.getElementById(id)));enableLeaveMovementActions();enableScheduleEditing();enableSecurityRotationBuilder();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 const root=document.querySelector('.container')||document.body;
 new MutationObserver(init).observe(root,{childList:true,subtree:true});
@@ -143,4 +143,70 @@ function enableScheduleEditing(){
   };
   wrapped.__flexWrapped=true;window.renderShiftTable=wrapped;
  }
+}
+
+function enableSecurityRotationBuilder(){
+ const tab=document.getElementById('tab-shifts');
+ if(!tab||document.getElementById('securityRotationBox'))return;
+ const box=document.createElement('div');box.id='securityRotationBox';box.className='edit-box';
+ box.innerHTML=`
+ <b>إنشاء دورة ورديات الأمن تلقائيًا (3 أسابيع متكررة)</b>
+ <div class="small">اختر الموظف وتاريخ بداية أول أسبوع. كل أسبوع مدته 7 أيام، ويُحدد يوم الراحة الأساسي لكل موظف. الجمعة: الأسبوع الأول 7 ص–7 م، الثاني 7 م–7 ص، والثالث راحة. يمكن تغيير الورديات قبل الإنشاء.</div>
+ <div class="flex" style="align-items:end;flex-wrap:wrap">
+  <div><label>الموظف</label><select id="rotEmp"></select></div>
+  <div><label>بداية أول أسبوع</label><input type="date" id="rotStart"></div>
+  <div><label>راحة الموظف الأساسية</label><select id="rotOff"><option value="Saturday">السبت</option><option value="Sunday">الأحد</option><option value="Monday">الإثنين</option><option value="Tuesday">الثلاثاء</option><option value="Wednesday">الأربعاء</option><option value="Thursday">الخميس</option><option value="Friday">الجمعة</option><option value="None">بدون</option></select></div>
+  <div><label>عدد مرات تكرار الدورة</label><input type="number" id="rotCycles" min="1" max="24" value="4" style="width:90px"></div>
+ </div>
+ <div class="flex" style="flex-wrap:wrap">
+  <div><label>الأسبوع الأول</label><select id="rotShift1"><option value="07:00|15:00">صباحي 7 ص–3 م</option><option value="15:00|23:00">مسائي 3 م–11 م</option><option value="23:00|07:00">ليلي 11 م–7 ص</option></select></div>
+  <div><label>الأسبوع الثاني</label><select id="rotShift2"><option value="15:00|23:00">مسائي 3 م–11 م</option><option value="07:00|15:00">صباحي 7 ص–3 م</option><option value="23:00|07:00">ليلي 11 م–7 ص</option></select></div>
+  <div><label>الأسبوع الثالث</label><select id="rotShift3"><option value="23:00|07:00">ليلي 11 م–7 ص</option><option value="07:00|15:00">صباحي 7 ص–3 م</option><option value="15:00|23:00">مسائي 3 م–11 م</option></select></div>
+  <div><label>جمعة الأسبوع الأول</label><div class="flex"><input type="time" id="rotFri1From" value="07:00"><input type="time" id="rotFri1To" value="19:00"></div></div>
+  <div><label>جمعة الأسبوع الثاني</label><div class="flex"><input type="time" id="rotFri2From" value="19:00"><input type="time" id="rotFri2To" value="07:00"></div></div>
+ </div>
+ <button type="button" class="btn-primary" onclick="buildSecurityRotation()">إنشاء الدورة وحفظها</button>
+ `;
+ const roster=tab.querySelector('#rosterTable');
+ if(roster&&roster.parentElement)roster.parentElement.insertBefore(box,roster);
+ else tab.insertBefore(box,tab.firstChild);
+ const fill=()=>{const sel=document.getElementById('rotEmp'),old=sel.value;sel.innerHTML='';(emps||[]).filter(e=>e.active!==false).forEach(e=>{const o=document.createElement('option');o.value=e.code;o.textContent=e.code+' - '+e.name;sel.appendChild(o);});if(old)sel.value=old;};
+ fill();box.addEventListener('click',fill);
+}
+function buildSecurityRotation(){
+ const code=document.getElementById('rotEmp').value,start=document.getElementById('rotStart').value,off=document.getElementById('rotOff').value,cycles=Number(document.getElementById('rotCycles').value);
+ const emp=(emps||[]).find(e=>String(e.code)===String(code));
+ if(!emp||!start||!Number.isInteger(cycles)||cycles<1||cycles>24)return alert('اختر موظفًا وتاريخ بداية وعدد دورات من 1 إلى 24');
+ const shifts=[document.getElementById('rotShift1').value,document.getElementById('rotShift2').value,document.getElementById('rotShift3').value].map(x=>x.split('|'));
+ const f1=[document.getElementById('rotFri1From').value,document.getElementById('rotFri1To').value],f2=[document.getElementById('rotFri2From').value,document.getElementById('rotFri2To').value];
+ if(!f1[0]||!f1[1]||!f2[0]||!f2[1])return alert('أدخل مواعيد الجمعة في الأسبوعين الأول والثاني');
+ const dayName=iso=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date(iso+'T12:00:00').getDay()];
+ const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+ const fridayOffset=(5-new Date(start+'T12:00:00').getDay()+7)%7;
+ const plans=[];
+ for(let c=0;c<cycles;c++)for(let w=0;w<3;w++){
+  const ws=addDays(start,(c*3+w)*7),we=addDays(ws,6),friday=addDays(ws,fridayOffset),[from,to]=shifts[w];
+  if(w<2&&off===dayName(friday))return alert('يوم الراحة الأساسي للموظف يوافق الجمعة، بينما توجد وردية جمعة في أول أسبوعين. اختر يوم راحة آخر أو عدّل وردية الجمعة.');
+  if(weeklyRosters.some(x=>String(x.code)===String(code)&&x.start<=we&&x.end>=ws))return alert('يوجد جدول أسبوعي محفوظ ومتداخل مع '+ws+' إلى '+we+'؛ لم يتم إنشاء أي جزء من الدورة.');
+  plans.push({ws,we,friday,w,from,to});
+ }
+ for(const p of plans){
+  if(p.w<2){
+   const times=p.w===0?f1:f2;
+   let endDate=p.friday;
+   if(times[1]<=times[0])endDate=addDays(p.friday,1);
+   const st=p.friday+'T'+times[0],en=endDate+'T'+times[1];
+   if(variableShifts.some(x=>String(x.code)===String(code)&&x.start===st))return alert('توجد وردية متغيرة محفوظة بالفعل في '+st+'؛ لم يتم إنشاء الدورة.');
+  }
+ }
+ if(!confirm('سيتم إنشاء '+plans.length+' جدول أسبوعي للموظف '+emp.name+'، مع ورديات الجمعة الخاصة وتكرار الدورة '+cycles+' مرة. لن تُحذف أي سجلات حضور سابقة. متابعة؟'))return;
+ plans.forEach(p=>{
+  weeklyRosters.push({id:'ROT-'+Date.now()+'-'+Math.random().toString(36).slice(2),code:String(code),start:p.ws,end:p.we,from:p.from,to:p.to,off,off2:p.w===2?'Friday':''});
+  if(p.w<2){
+   const times=p.w===0?f1:f2,endDate=times[1]<=times[0]?addDays(p.friday,1):p.friday,st=p.friday+'T'+times[0],en=endDate+'T'+times[1];
+   variableShifts.push({id:'ROT-S-'+Date.now()+'-'+Math.random().toString(36).slice(2),code:String(code),start:st,end:en,hours:(new Date(en)-new Date(st))/3600000,extra:0,factor:1,note:p.w===0?'وردية جمعة 12 ساعة - أسبوع صباحي':'وردية جمعة ليلية - أسبوع مسائي'});
+  }
+ });
+ saveExtraModules();if(typeof renderRosterTable==='function')renderRosterTable();if(typeof renderShiftTable==='function')renderShiftTable();if(typeof renderDaily==='function')renderDaily();
+ alert('تم إنشاء دورة الورديات وحفظها. راجع جدول الأسابيع والورديات المتغيرة قبل اعتماد الحضور.');
 }
