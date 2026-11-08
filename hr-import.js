@@ -220,12 +220,17 @@
       leaveLedger = manualLedger.concat(cleanImported);
 
       const leaveProfileMap = new Map((data.leaveProfiles || []).map(function (p) { return [normCode(p.code), p]; }));
+      const activeMasterMap = new Map((hrMaster.active || []).map(function (p) { return [normCode(p.code), p]; }));
+      const importedLeaveCodes = new Set(importedLedger.map(function (x) { return normCode(x.code); }));
       emps.forEach(function (emp) {
-        const p = leaveProfileMap.get(normCode(emp.code));
-        if (!p) return;
-        if (p.hireDate) emp.hireDate = p.hireDate;
-        if (p.leaveTypeCode === 'migrant' || p.leaveTypeCode === 'resident') emp.leaveType = p.leaveTypeCode;
-        emp.leaveImportedThrough = data.asOf || '2026-11-08';
+        const code = normCode(emp.code);
+        const p = leaveProfileMap.get(code);
+        const master = activeMasterMap.get(code);
+        if (master && master.name) emp.name = master.name;
+        if ((p && p.hireDate) || (master && master.hireDate)) emp.hireDate = (p && p.hireDate) || master.hireDate;
+        const typeCode = (p && p.leaveTypeCode) || (master && master.leaveTypeCode);
+        if (typeCode === 'migrant' || typeCode === 'resident') emp.leaveType = typeCode;
+        if (importedLeaveCodes.has(code)) emp.leaveImportedThrough = data.asOf || '2026-11-08';
       });
 
       Object.keys(data.attendanceLeave).forEach(function (key) {
@@ -271,10 +276,13 @@
         };
       }
     });
+    const importedCodes = new Set(importedLedger.map(function (x) { return normCode(x.code); }));
+    const leaveProfiles = (hrMaster.active || []).filter(function (r) { return importedCodes.has(normCode(r.code)); })
+      .map(function (r) { return { code: r.code, hireDate: r.hireDate, leaveTypeCode: r.leaveTypeCode, leaveTypeLabel: r.leaveTypeLabel }; });
     downloadJSON('نسخة_ملفات_العاملين_والإجازات.json', {
       format: 'ahmed-hr-import-v1', asOf: '2026-11-08',
       employeeMaster: hrMaster, leaveLedger: importedLedger,
-      attendanceLeave: attendanceLeave, leaveProfiles: []
+      attendanceLeave: attendanceLeave, leaveProfiles: leaveProfiles
     });
   }
 
