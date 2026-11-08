@@ -132,8 +132,8 @@
 
 
   function normalizeHeader(v) {
-    return String(v == null ? '' : v).toLowerCase().replace(/[\\u064B-\\u065F\\u0670\\u0640]/g,'')
-      .replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\\s_\\-()\\/]/g,'');
+    return String(v == null ? '' : v).toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'')
+      .replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()\/]/g,'');
   }
   function dateValue(v) {
     if (v instanceof Date && !isNaN(v)) return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
@@ -142,8 +142,8 @@
       return d ? d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0') : '';
     }
     const s=String(v||'').trim();
-    if (/^\\d{4}-\\d{2}-\\d{2}/.test(s)) return s.slice(0,10);
-    const p=s.split(/[\\/.-]/);
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+    const p=s.split(/[\/.-]/);
     if(p.length===3) return p[0].length===4 ? p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0') : p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');
     return '';
   }
@@ -156,8 +156,8 @@
       let sheets=[];
       if(file.name.toLowerCase().endsWith('.csv')) {
         const txt=new TextDecoder('windows-1256').decode(bytes);
-        const delim=(txt.split(/\\r?\\n/)[0]||'').includes(';')?';':',';
-        const rows=txt.split(/\\r?\\n/).filter(x=>x.trim()).map(line=>{const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'&&q){cur+='"';i++;}else if(ch==='"')q=!q;else if(ch===delim&&!q){out.push(cur.trim());cur='';}else cur+=ch;}out.push(cur.trim());return out;});
+        const delim=(txt.split(/\r?\n/)[0]||'').includes(';')?';':',';
+        const rows=txt.split(/\r?\n/).filter(x=>x.trim()).map(line=>{const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'&&q){cur+='"';i++;}else if(ch==='"')q=!q;else if(ch===delim&&!q){out.push(cur.trim());cur='';}else cur+=ch;}out.push(cur.trim());return out;});
         sheets=[{name:'في العمل',rows}];
       } else {
         if(!window.XLSX) throw new Error('مكتبة Excel لم تُحمّل؛ حدّث الصفحة وحاول مرة أخرى');
