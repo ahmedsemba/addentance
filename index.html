@@ -511,7 +511,7 @@ async function previewLeaveImport(){
    const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true});
    rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
   }
-  const norm=s=>String(s||'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()]/g,'');
+  const norm=s=>String(s||'').replace(/^\uFEFF/,'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()]/g,'');
   const headAt=rows.findIndex(r=>{const h=r.map(norm);return h.some(x=>x==='date'||x.startsWith('التاريخ'))&&h.some(x=>['الكود','كود','رقم الموظف','employeeid'].includes(x))&&h.some(x=>['عدد الايام','الايام','days'].includes(x));});
   if(headAt<0)throw new Error('لم أجد عناوين الأعمدة المطلوبة: التاريخ، الكود، عدد الأيام');
   const h=rows[headAt].map(norm),col=names=>h.findIndex(x=>names.includes(x));
@@ -811,6 +811,10 @@ async function importZK(){
   const dateISO=s=>{const v=String(s||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);const p=v.split(/[\/.-]/);if(p.length==3){if(p[0].length==4)return p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}return '';};
   const truth=s=>/^(1|true|yes|y|نعم)$/i.test(String(s||'').trim());
   const hours=s=>{const v=String(s||'').trim();if(!v||/[صم]|AM|PM/i.test(v))return null;const m=v.match(/^(\d{1,3}):(\d{2})(?::(\d{2}))?$/);if(m)return Number(m[1])+Number(m[2])/60+Number(m[3]||0)/3600;const n=Number(v);return Number.isFinite(n)?n:null;};
+  const validRows=rows.slice(headerRow+1).filter(r=>val(r,'code')&&dateISO(val(r,'date')));
+  if(!validRows.length)throw new Error('لم أجد صفوفًا تحتوي على كود موظف وتاريخ صحيح.');
+  const dateList=validRows.map(r=>dateISO(val(r,'date'))).sort();
+  if(!confirm('معاينة ملف البصمة: '+validRows.length+' سجل صالح، من '+dateList[0]+' إلى '+dateList[dateList.length-1]+'. سيتم تحديث سجلات هذه الأيام فقط. هل تريد الاستيراد؟'))return;
   const deptFor=name=>{if(!name)return '';let d=depts.find(x=>norm(x.name)===norm(name));if(!d){d={id:'d'+Date.now()+Math.random().toString(36).slice(2,6),name:name,from:'09:00',to:'17:00',off:'Friday'};depts.push(d);}return d.id;};
   let added=0,updated=0,skipped=0;
   for(let i=headerRow+1;i<rows.length;i++){
