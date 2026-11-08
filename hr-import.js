@@ -198,7 +198,7 @@
     try {
       const data = JSON.parse(await file.text());
       if (!data || data.format !== 'ahmed-hr-import-v1' || !data.employeeMaster ||
-          !Array.isArray(data.employeeMaster.active) || !Array.isArray(data.window.hrLeaveLedger) ||
+          !Array.isArray(data.employeeMaster.active) || !Array.isArray(data.leaveLedger) ||
           !data.attendanceLeave || typeof data.attendanceLeave !== 'object') {
         throw new Error('صيغة الملف غير صحيحة أو غير مكتملة');
       }
@@ -207,7 +207,7 @@
       hrMaster = data.employeeMaster;
       await saveHrMaster();
 
-      const importedLedger = data.window.hrLeaveLedger || [];
+      const importedLedger = data.leaveLedger || [];
       const manualLedger = window.hrLeaveLedger.filter(function (x) { return !String(x.id || '').startsWith('IMP_'); });
       const manualKeys = new Set(manualLedger.filter(function (x) {
         return ['paid', 'unpaid', 'special'].includes(x.kind);
@@ -281,7 +281,7 @@
       .map(function (r) { return { code: r.code, hireDate: r.hireDate, leaveTypeCode: r.leaveTypeCode, leaveTypeLabel: r.leaveTypeLabel }; });
     downloadJSON('نسخة_ملفات_العاملين_والإجازات.json', {
       format: 'ahmed-hr-import-v1', asOf: '2026-11-08',
-      employeeMaster: hrMaster, window.hrLeaveLedger: importedLedger,
+      employeeMaster: hrMaster, leaveLedger: importedLedger,
       attendanceLeave: attendanceLeave, leaveProfiles: leaveProfiles
     });
   }
