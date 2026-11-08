@@ -146,6 +146,15 @@ tbody tr:hover{background:#eef8f6}
 <div style="min-width:150px"><label>تاريخ التعيين</label><input type="date" id="leaveHire"></div>
 <button class="btn-primary" onclick="saveLeaveProfile()">حفظ بيانات الإجازة</button>
 </div>
+<div class="edit-box" style="border:2px solid #b7791f;margin-top:10px">
+<b>تسجيل تحويل نوع الموظف</b>
+<div class="flex">
+<div><label>تاريخ التحويل</label><input type="date" id="leaveConversionDate"></div>
+<div><label>النوع الجديد</label><select id="leaveConversionTarget"><option value="resident">مقيم</option><option value="migrant">مغترب</option></select></div>
+<button class="btn-primary" onclick="registerLeaveTypeConversion()">تسجيل التحويل وتسوية الرصيد</button>
+</div>
+<div class="small">يُسجل التحويل بتاريخ فعلي، ويُحتفظ بالرصيد والحركات السابقة. التحويل إلى مقيم يمنح استحقاق الفترة المتبقية حتى 25 ديسمبر بنسبة وتناسب. والتحويل إلى مغترب تتم مقارنة الرصيد بالاستحقاق المتوقع حتى نهاية السنة، ويُرحّل الفرق على الاستحقاقات الشهرية بحد أقصى كامل استحقاق كل شهر.</div>
+</div>
 <div class="small">المغترب: 5 أيام يوم 26 من كل شهر، وأول شهر بالتناسب؛ تصبح 6 أيام من يناير إلى سبتمبر بعد إكمال 10 سنوات. المقيم: منحة سنوية يوم 26 ديسمبر (21 يومًا، أو 30 بعد 10 سنوات) بعد 6 أشهر، مع تصفير المتبقي يوم 25 ديسمبر للتسوية المالية.</div>
 </div>
 <div class="bulk-bar">
@@ -269,15 +278,38 @@ function fillModuleEmployees(){['leaveEmp','shiftEmp'].forEach(id=>{const el=doc
 function saveLeaveProfile(){
  const emp=emps.find(e=>e.code==leaveEmp.value);if(!emp)return alert('اختار موظف');
  const nextType=leaveType.value,nextHire=leaveHire.value;if(!nextHire)return alert('أدخل تاريخ التعيين الصحيح');
- const changed=(emp.leaveType||'migrant')!==nextType||(emp.hireDate||'')!==nextHire;
+ if(nextType!==(emp.leaveType||'migrant')){leaveType.value=emp.leaveType||'migrant';return alert('تغيير نوع الموظف يتم من خانة «تسجيل تحويل نوع الموظف» حتى نحفظ تاريخ التحويل ونسوي الرصيد بصورة صحيحة.');}
+ const changed=(emp.hireDate||'')!==nextHire;
+ if(changed&&Array.isArray(emp.leaveTransitions)&&emp.leaveTransitions.length)return alert('لا يمكن تعديل تاريخ التعيين بعد تسجيل تحويلات؛ للحفاظ على التسلسل التاريخي تواصل مع مدير النظام.');
  if(changed){
   const hasManual=leaveLedger.some(x=>x.code==emp.code&&!['accrual','year_close'].includes(x.kind));
   if(hasManual&&!confirm('سيعاد بناء الاستحقاقات التلقائية فقط مع الاحتفاظ بحركات الإجازات والتسويات اليدوية. هل تريد المتابعة؟'))return;
   leaveLedger=leaveLedger.filter(x=>!(x.code==emp.code&&['accrual','year_close'].includes(x.kind)));
  }
- emp.leaveType=nextType;emp.hireDate=nextHire;saveAll();
+ emp.hireDate=nextHire;saveAll();
  if(changed){const n=new Date(),today=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');ensureAccruals(today);}
- saveExtraModules();renderLeaveModule();alert('تم حفظ البيانات وإعادة احتساب الاستحقاقات التلقائية دون حذف الحركات اليدوية.');
+ saveExtraModules();renderLeaveModule();alert('تم حفظ بيانات الإجازة دون تغيير نوع الموظف أو حذف الحركات اليدوية.');
+}
+function registerLeaveTypeConversion(){
+ const emp=emps.find(e=>e.code==leaveEmp.value),date=document.getElementById('leaveConversionDate')?.value,target=document.getElementById('leaveConversionTarget')?.value;
+ if(!emp||!date||!target)return alert('اختار الموظف وتاريخ التحويل والنوع الجديد');
+ const current=emp.leaveType||'migrant';
+ if(target===current)return alert('النوع الجديد مطابق للنوع الحالي');
+ if(emp.hireDate&&date<emp.hireDate)return alert('تاريخ التحويل يسبق تاريخ التعيين');
+ const now=new Date(),today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+ if(date>today)return alert('سجل التحويل بعد حلول تاريخه الفعلي');
+ emp.leaveBaseType=emp.leaveBaseType||current;
+ emp.leaveTransitions=Array.isArray(emp.leaveTransitions)?emp.leaveTransitions:[];
+ if(emp.leaveTransitions.some(x=>x.date===date))return alert('يوجد تحويل مسجل بالفعل في هذا التاريخ');
+ const previous=emp.leaveTransitions.filter(x=>x.date<date).sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0];
+ const typeAtDate=previous?previous.to:emp.leaveBaseType;
+ if(typeAtDate!==current)return alert('تاريخ التحويل لا يتوافق مع النوع الحالي للموظف؛ راجع سجل التحويلات أولاً');
+ if(emp.leaveTransitions.some(x=>x.date>date))return alert('لا يمكن إضافة تحويل بتاريخ أقدم من تحويل مسجل لاحقًا');
+ if(!confirm('سيتم تسجيل التحويل من '+(current==='migrant'?'مغترب':'مقيم')+' إلى '+(target==='migrant'?'مغترب':'مقيم')+' بتاريخ '+date+'، وإعادة بناء الاستحقاقات التلقائية مع الاحتفاظ بكل الحركات اليدوية. هل تعتمد؟'))return;
+ emp.leaveTransitions.push({date,from:current,to:target});
+ emp.leaveType=target;
+ leaveLedger.push({id:'TYPE-CONV-'+emp.code+'-'+date,code:emp.code,date,kind:'conversion',label:'تحويل نوع الموظف',add:0,deduct:0,note:'تحويل من '+(current==='migrant'?'مغترب':'مقيم')+' إلى '+(target==='migrant'?'مغترب':'مقيم')+'؛ تتم التسوية تلقائيًا وفق قواعد الإجازات'});
+ saveAll();const n=new Date(),asOf=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');ensureAccruals(asOf);saveExtraModules();renderLeaveModule();alert('تم تسجيل التحويل وإعادة احتساب الاستحقاقات. راجع سجل التحويل والرصيد قبل اعتماد أي تسوية مالية.');
 }
 function yearsAt(emp,iso){if(!emp.hireDate||!iso)return 0;return Math.max(0,(new Date(iso+'T12:00:00')-new Date(emp.hireDate+'T12:00:00'))/(365.2425*86400000));}
 function dateAddMonths(date,n){const d=new Date(date+'T12:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return d.toISOString().slice(0,10);}
@@ -304,63 +336,79 @@ function ensureAccruals(asOf){
  if(!asOf)asOf=todayIso;if(asOf>todayIso)asOf=todayIso;
  const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
  const addDays=(v,n)=>{const d=new Date(v+'T12:00:00');d.setDate(d.getDate()+n);return iso(d);};
- const daysBetween=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000)+1;
+ const daysBetween=(a,b)=>Math.max(0,Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000)+1);
  const maxDate=(a,b)=>a>b?a:b;
- // Rebuild automatic entries deterministically; manual movements and opening balances remain untouched.
- leaveLedger=leaveLedger.filter(x=>!['accrual','year_close'].includes(x.kind));
+ leaveLedger=leaveLedger.filter(x=>!['accrual','year_close','conversion_offset'].includes(x.kind));
  let made=0;
  emps.forEach(emp=>{
   if(!emp.hireDate||emp.hireDate>asOf)return;
-  const type=emp.leaveType||'migrant';
-  if(type==='resident'){
-   const hireYear=Number(emp.hireDate.slice(0,4)),lastYear=Number(asOf.slice(0,4));
-   for(let y=hireYear;y<=lastYear;y++){
-    const closeDate=y+'-12-25',grantDate=y+'-12-26',cycleStart=(y-1)+'-12-26';
-    if(closeDate>=emp.hireDate&&closeDate<=asOf){
-     const prior=ledgerBalance(emp.code,closeDate);
-     if(Math.abs(prior)>0.000001)leaveLedger.push({id:'AUTO-CLOSE-'+emp.code+'-'+closeDate,date:closeDate,code:emp.code,kind:'year_close',label:'إقفال رصيد المقيم في 25 ديسمبر',add:prior<0?Math.abs(prior):0,deduct:prior>0?prior:0,note:'تصفير الرصيد القديم للتسوية المالية؛ لا يُرحّل إلى السنة الجديدة'});
-    }
-    if(grantDate>asOf)continue;
-    const cycleDays=daysBetween(cycleStart,closeDate),eligibleDate=dateAddMonths(emp.hireDate,6);
-    let amount=0,base=0,uplift=0;
-    if(eligibleDate<=closeDate){
-     const eligibleStart=maxDate(cycleStart,eligibleDate);
-     const eligibleDays=Math.max(0,daysBetween(eligibleStart,closeDate));
-     base=21*Math.min(1,eligibleDays/cycleDays);
-     const tenDate=dateAddMonths(emp.hireDate,120);
-     if(tenDate<=closeDate){
-      if(tenDate<=cycleStart)uplift=9;
-      else{
-       const months=Math.max(0,Math.min(12,(Number(closeDate.slice(0,4))-Number(tenDate.slice(0,4)))*12+(Number(closeDate.slice(5,7))-Number(tenDate.slice(5,7)))+1));
-       uplift=9*months/12;
+  const transitions=(Array.isArray(emp.leaveTransitions)?emp.leaveTransitions:[]).filter(x=>x.date>=emp.hireDate&&x.date<=asOf).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const baseType=emp.leaveBaseType||(transitions[0]?.from)||(emp.leaveType||'migrant');
+  const timeline=[{date:emp.hireDate,type:baseType,initial:true},...transitions.map(x=>({date:x.date,type:x.to,from:x.from,transition:true}))];
+  const segments=timeline.map((x,i)=>({start:x.date,end:timeline[i+1]?addDays(timeline[i+1].date,-1):asOf,type:x.type,transition:x.transition||false}));
+  segments.forEach((seg,si)=>{
+   if(seg.start>asOf||seg.end<seg.start)return;
+   if(seg.type==='resident'){
+    if(seg.transition){
+     const cycleStart=latestLeaveYearStart(seg.start),closeDate=cycleStart.slice(0,4)==seg.start.slice(0,4)?seg.start.slice(0,4)+'-12-25':(Number(seg.start.slice(0,4))+1)+'-12-25';
+     const remainingDays=daysBetween(seg.start,closeDate),cycleDays=daysBetween(cycleStart,closeDate);
+     const years=yearsAt(emp,seg.start),rate=years>=10?30:21;
+     const amount=cycleDays?rate*remainingDays/cycleDays:0;
+     if(amount>0) {leaveLedger.push({id:'AUTO-CONVERSION-RES-'+emp.code+'-'+seg.start,date:seg.start,code:emp.code,kind:'accrual',label:'تسوية تحويل من مغترب إلى مقيم',add:Number(amount.toFixed(4)),deduct:0,note:'استحقاق المقيم من تاريخ التحويل حتى 25 ديسمبر بنسبة وتناسب؛ مع الاحتفاظ بالرصيد السابق'});made++;}
+    }else{
+     const firstYear=Number(seg.start.slice(0,4)),lastYear=Number(seg.end.slice(0,4));
+     for(let y=firstYear;y<=lastYear;y++){
+      const closeDate=y+'-12-25',grantDate=y+'-12-26',cycleStart=(y-1)+'-12-26';
+      if(closeDate>=seg.start&&closeDate<=seg.end){
+       const prior=ledgerBalance(emp.code,closeDate);
+       if(Math.abs(prior)>0.000001)leaveLedger.push({id:'AUTO-CLOSE-'+emp.code+'-'+closeDate,date:closeDate,code:emp.code,kind:'year_close',label:'إقفال رصيد المقيم في 25 ديسمبر',add:prior<0?Math.abs(prior):0,deduct:prior>0?prior:0,note:'تصفير الرصيد القديم للتسوية المالية؛ لا يُرحّل إلى السنة الجديدة'});
       }
+      if(grantDate<seg.start||grantDate>seg.end)continue;
+      const cycleDays=daysBetween(cycleStart,closeDate),eligibleDate=dateAddMonths(emp.hireDate,6);
+      let amount=0;
+      if(eligibleDate<=closeDate){
+       const eligibleStart=maxDate(cycleStart,eligibleDate),eligibleDays=daysBetween(eligibleStart,closeDate);
+       const base=21*Math.min(1,eligibleDays/cycleDays);
+       const tenDate=dateAddMonths(emp.hireDate,120);
+       let uplift=0;
+       if(tenDate<=closeDate){
+        if(tenDate<=cycleStart)uplift=9;
+        else{
+         const months=Math.max(0,Math.min(12,(Number(closeDate.slice(0,4))-Number(tenDate.slice(0,4)))*12+(Number(closeDate.slice(5,7))-Number(tenDate.slice(5,7)))+1));
+         uplift=9*months/12;
+        }
+       }
+       amount=base+uplift;
+      }
+      if(amount>0.000001){leaveLedger.push({id:'AUTO-ACCRUAL-'+emp.code+'-'+grantDate,date:grantDate,code:emp.code,kind:'accrual',label:'استحقاق سنوي للمقيم',add:Number(amount.toFixed(4)),deduct:0,note:'منحة سنوية في 26 ديسمبر؛ الأساسي 21 يومًا بعد 6 أشهر، وزيادة 9 أيام بالتناسب الشهري عند إكمال 10 سنوات'});made++;}
      }
-     amount=base+uplift;
     }
-    if(amount>0.000001){
-     leaveLedger.push({id:'AUTO-ACCRUAL-'+emp.code+'-'+grantDate,date:grantDate,code:emp.code,kind:'accrual',label:'استحقاق سنوي للمقيم',add:Number(amount.toFixed(4)),deduct:0,note:'منحة سنوية في 26 ديسمبر؛ الأساسي 21 يومًا بعد 6 أشهر، وزيادة 9 أيام بالتناسب الشهري عند إكمال 10 سنوات'});
-     made++;
+   }else{
+    let cursor=new Date(seg.start+'T12:00:00');cursor.setDate(26);
+    if(iso(cursor)<seg.start)cursor.setMonth(cursor.getMonth()+1);
+    let first=seg.initial===true,guard=0;
+    const transition=transitions.find(x=>x.date===seg.start);
+    let debt=0;
+    if(transition&&transition.from==='resident'&&transition.to==='migrant'){
+     const yearEnd=seg.start.slice(0,4)+'-12-25';
+     let expected=0,probe=new Date(seg.start+'T12:00:00');probe.setDate(26);if(iso(probe)<=seg.start)probe.setMonth(probe.getMonth()+1);
+     while(iso(probe)<=yearEnd){const due=iso(probe),ten=yearsAt(emp,due)>=10&&probe.getMonth()<=8;expected+=ten?6:5;probe.setMonth(probe.getMonth()+1);}
+     const currentBalance=ledgerBalance(emp.code,seg.start);
+     debt=Math.max(0,expected-currentBalance);
+     if(debt>0.000001)leaveLedger.push({id:'AUTO-OFFSET-'+emp.code+'-'+seg.start,date:seg.start,code:emp.code,kind:'conversion_offset',label:'تسوية تحويل من مقيم إلى مغترب',add:0,deduct:0,note:'استحقاق مغترب متوقع حتى 25 ديسمبر: '+expected.toFixed(2)+' يوم؛ الرصيد المتبقي عند التحويل: '+currentBalance.toFixed(2)+' يوم؛ المبلغ المرحّل للخصم من الاستحقاقات الشهرية: '+debt.toFixed(2)+' يوم'});
+    }
+    while(iso(cursor)<=seg.end&&guard++<600){
+     const due=iso(cursor),periodStart=dateAddMonths(due,-1),periodEnd=addDays(due,-1);
+     const ten=yearsAt(emp,due)>=10,rate=ten&&cursor.getMonth()<=8?6:5;
+     let amount=rate;
+     if(first){const eligibleStart=maxDate(emp.hireDate,periodStart),eligibleDays=daysBetween(eligibleStart,periodEnd),periodDays=daysBetween(periodStart,periodEnd);amount=periodDays?rate*eligibleDays/periodDays:0;}
+     const before=amount,offset=Math.min(amount,debt);amount-=offset;debt-=offset;
+     if(amount>0.000001){leaveLedger.push({id:'AUTO-ACCRUAL-'+emp.code+'-'+due,date:due,code:emp.code,kind:'accrual',label:offset>0?'استحقاق مغترب بعد تسوية التحويل':'استحقاق شهري للمغترب',add:Number(amount.toFixed(4)),deduct:0,note:(first?'أول شهر محسوب بالتناسب من تاريخ التعيين حتى يوم 25': 'إضافة تلقائية يوم 26؛ 5 أيام أو 6 بعد إكمال 10 سنوات من يناير إلى سبتمبر')+(offset>0?' | تم خصم '+offset.toFixed(2)+' يوم من تسوية التحويل':'')});made++;}
+     else if(offset>0)leaveLedger.push({id:'AUTO-OFFSET-MONTH-'+emp.code+'-'+due,date:due,code:emp.code,kind:'conversion_offset',label:'خصم استحقاق بسبب التحويل',add:0,deduct:0,note:'تم استهلاك '+offset.toFixed(2)+' يوم من استحقاق هذا الشهر في تسوية التحويل'});
+     first=false;cursor.setMonth(cursor.getMonth()+1);
     }
    }
-  }else{
-   let cursor=new Date(emp.hireDate+'T12:00:00');cursor.setDate(26);
-   if(iso(cursor)<=emp.hireDate)cursor.setMonth(cursor.getMonth()+1);
-   let first=true,guard=0;
-   while(iso(cursor)<=asOf&&guard++<600){
-    const due=iso(cursor),periodStart=dateAddMonths(due,-1),periodEnd=addDays(due,-1);
-    const ten=yearsAt(emp,due)>=10,rate=ten&&cursor.getMonth()<=8?6:5;
-    let amount=rate;
-    if(first){
-     const eligibleStart=maxDate(emp.hireDate,periodStart),eligibleDays=Math.max(0,daysBetween(eligibleStart,periodEnd)),periodDays=daysBetween(periodStart,periodEnd);
-     amount=periodDays?rate*eligibleDays/periodDays:0;
-    }
-    if(amount>0.000001){
-     leaveLedger.push({id:'AUTO-ACCRUAL-'+emp.code+'-'+due,date:due,code:emp.code,kind:'accrual',label:first?'استحقاق شهري أول بالتناسب':'استحقاق شهري للمغترب',add:Number(amount.toFixed(4)),deduct:0,note:first?'أول شهر محسوب بالتناسب من تاريخ التعيين حتى يوم 25':'إضافة تلقائية يوم 26؛ 5 أيام أو 6 بعد إكمال 10 سنوات من يناير إلى سبتمبر'});
-     made++;
-    }
-    first=false;cursor.setMonth(cursor.getMonth()+1);
-   }
-  }
+  });
  });
  leaveLedger.sort((a,b)=>a.date.localeCompare(b.date));
  saveExtraModules();return made;
@@ -407,7 +455,7 @@ function addLeaveMovement(){
  saveAll();saveExtraModules();renderLeaveModule();renderDaily();
 }
 function runLeaveAccrual(){const d=accrualDate.value;if(!d)return alert('اختار تاريخ');const n=ensureAccruals(d);renderLeaveModule();alert('تمت إضافة '+n+' حركة استحقاق جديدة دون تكرار الحركات السابقة');}
-function renderLeaveModule(){fillModuleEmployees();const emp=emps.find(e=>e.code==leaveEmp.value);if(emp){leaveType.value=emp.leaveType||'migrant';leaveHire.value=emp.hireDate||'';}const now=new Date();const todayIso=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');if(!accrualDate.value)accrualDate.value=todayIso;const asOf=accrualDate.value||todayIso;ensureAccruals(asOf);const balDiv=document.getElementById('leaveBalances');if(balDiv){let html='<b>الأرصدة حتى '+asOf+'</b><br>';emps.forEach(e=>{const b=ledgerBalance(e.code,asOf);html+='<div>'+e.code+' - '+e.name+' ('+((e.leaveType||'migrant')=='migrant'?'مغترب':'مقيم')+'): <b>'+b.toFixed(2)+' يوم</b></div>';});balDiv.innerHTML=html;}const tb=document.querySelector('#leaveTable tbody');if(tb){tb.innerHTML='';leaveLedger.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{const e=emps.find(y=>y.code==x.code)||{};const bal=ledgerBalance(x.code,x.date);const tr=document.createElement('tr');[x.date,x.code,e.name||'',x.label||x.kind,Number(x.add||0).toFixed(2),Number(x.deduct||0).toFixed(2),bal.toFixed(2),x.note||''].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});tb.appendChild(tr);});}}
+function renderLeaveModule(){fillModuleEmployees();const emp=emps.find(e=>e.code==leaveEmp.value);if(emp){leaveType.value=emp.leaveType||'migrant';leaveHire.value=emp.hireDate||'';const ct=document.getElementById('leaveConversionTarget');if(ct)ct.value=(emp.leaveType||'migrant')==='migrant'?'resident':'migrant';}const cd=document.getElementById('leaveConversionDate');if(cd&&!cd.value){const n=new Date();cd.value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}const now=new Date();const todayIso=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');if(!accrualDate.value)accrualDate.value=todayIso;const asOf=accrualDate.value||todayIso;ensureAccruals(asOf);const balDiv=document.getElementById('leaveBalances');if(balDiv){let html='<b>الأرصدة حتى '+asOf+'</b><br>';emps.forEach(e=>{const b=ledgerBalance(e.code,asOf);html+='<div>'+e.code+' - '+e.name+' ('+((e.leaveType||'migrant')=='migrant'?'مغترب':'مقيم')+'): <b>'+b.toFixed(2)+' يوم</b></div>';});balDiv.innerHTML=html;}const tb=document.querySelector('#leaveTable tbody');if(tb){tb.innerHTML='';leaveLedger.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{const e=emps.find(y=>y.code==x.code)||{};const bal=ledgerBalance(x.code,x.date);const tr=document.createElement('tr');[x.date,x.code,e.name||'',x.label||x.kind,Number(x.add||0).toFixed(2),Number(x.deduct||0).toFixed(2),bal.toFixed(2),x.note||''].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});tb.appendChild(tr);});}}
 let stagedLeaveImport=[];
 function downloadLeaveImportTemplate(){
  const rows=[['التاريخ','الكود','نوع الحركة','عدد الأيام','ملاحظات'],['2026-10-01','ضع كود الموظف','مدفوعة','1','مثال — احذف صف المثال قبل الرفع'],['2026-10-05','ضع كود الموظف','بدون أجر','1','مثال'],['2026-10-10','ضع كود الموظف','تسوية','-0.5','مثال خصم نصف يوم']];
