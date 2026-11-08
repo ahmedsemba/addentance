@@ -94,7 +94,7 @@
     document.getElementById('hrFactoryFilter').addEventListener('change',renderHRData);
     document.getElementById('hrDeptFilter').addEventListener('input',renderHRData);
     on('hrClearFiltersBtn',()=>{document.getElementById('hrSearch').value='';document.getElementById('hrStatusFilter').value='all';document.getElementById('hrFactoryFilter').value='';document.getElementById('hrDeptFilter').value='';renderHRData();});
-    on('hrSelectVisible',function(){document.querySelectorAll('.hrRowSelect').forEach(x=>x.checked=this.checked);});
+    on('hrSelectVisible',function(){window.hrSelectedKeys=window.hrSelectedKeys||new Set();document.querySelectorAll('.hrRowSelect').forEach(x=>{x.checked=this.checked;if(this.checked)window.hrSelectedKeys.add(x.dataset.key);else window.hrSelectedKeys.delete(x.dataset.key);});});
     on('hrSaveEditBtn',saveHRRecordEdit);on('hrCancelEditBtn',clearHRRecordEdit);
     on('hrBulkEditBtn',bulkEditHRRecords);on('hrDeleteSelectedBtn',()=>deleteHRRecords('selected'));
     on('hrDeleteFilteredBtn',()=>deleteHRRecords('filtered'));on('hrDeleteAllBtn',()=>deleteHRRecords('all'));
@@ -344,8 +344,8 @@
     const keys=Array.from(window.hrSelectedKeys||[]);if(!keys.length)return alert('حدد الموظفين أولاً');
     const factory=prompt('اكتب اسم المصنع الجديد. اتركه فارغًا للاحتفاظ بالحالي:');if(factory===null)return;
     const dept=prompt('اكتب الإدارة الجديدة. اتركها فارغة للاحتفاظ بالحالي:');if(dept===null)return;
-    keys.forEach(k=>{const p=k.indexOf('|'),g=k.slice(0,p),code=k.slice(p+1),r=(hrMaster[g]||[]).find(x=>normCode(x.code)===code);if(!r)return;if(factory.trim())r.factory=factory.trim();if(dept.trim())r.departmentCode=dept.trim();});
-    saveHrMaster().then(()=>{renderHRData();alert('تم تحديث المصنع والإدارة للسجلات المحددة.');});
+    keys.forEach(k=>{const p=k.indexOf('|'),g=k.slice(0,p),code=k.slice(p+1),r=(hrMaster[g]||[]).find(x=>normCode(x.code)===code);if(!r)return;if(factory.trim())r.factory=factory.trim();if(dept.trim())r.departmentCode=dept.trim();const emp=emps.find(e=>normCode(e.code)===code);if(g==='active'&&/عبور|obour/i.test(r.factory||'')){let deptId='';if(r.departmentCode){let d=depts.find(x=>normCode(x.name)===normCode(r.departmentCode));if(!d){d={id:'hrd_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),name:r.departmentCode,from:'08:00',to:'16:00',off:'Friday'};depts.push(d);}deptId=d.id;}if(emp){emp.name=r.name;if(deptId)emp.dept=deptId;emp.active=true;}else emps.push({code:r.code,name:r.name,dept:deptId,from:'',to:'',active:true,hireDate:r.hireDate||'',leaveType:r.leaveTypeCode||'migrant'});}else if(emp)emp.active=false;});
+    saveHrMaster().then(()=>{saveAll();renderHRData();renderEmps();renderDaily();alert('تم تحديث المصنع والإدارة للسجلات المحددة.');});
   }
   function exportFilteredHRRecords(){
     if(!window.XLSX)return alert('مكتبة Excel لم تُحمّل');const rows=[['الكود','الاسم','المصنع','الإدارة','الوظيفة','تاريخ التعيين','الحالة','نوع الإجازة']];
