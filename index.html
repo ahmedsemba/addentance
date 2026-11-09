@@ -825,14 +825,15 @@ async function importEmployeeMaster(){
    const statusText=ix.status>=0?clean(r[ix.status]):'';
    const inactive=/مستبعد|منته|منتهي|ترك|غير نشط|inactive|terminated/i.test(statusText);
    const emp=emps.find(x=>String(x.code).trim()===code);
-   const fields={code,name,factory,jobTitle:ix.job>=0?clean(r[ix.job]):'',hireDate:ix.hire>=0?dateISO(r[ix.hire]):'',active:!inactive,terminationReason:ix.reason>=0?clean(r[ix.reason]):'',terminationDate:ix.end>=0?dateISO(r[ix.end]):''};
+   const fields={code,name,factory,jobTitle:ix.job>=0?clean(r[ix.job]):'',hireDate:ix.hire>=0?dateISO(r[ix.hire]):'',terminationReason:ix.reason>=0?clean(r[ix.reason]):'',terminationDate:ix.end>=0?dateISO(r[ix.end]):''};
+   if(statusText)fields.active=!inactive;
    if(emp){
-    Object.assign(emp,fields);
+    Object.keys(fields).forEach(k=>{if(fields[k]!==''&&fields[k]!==undefined)emp[k]=fields[k];});
     if(deptId)emp.dept=deptId;
     if(!emp.leaveType)emp.leaveType=leaveType;
     updated++;
    }else{
-    emps.push({...fields,dept:deptId||depts[0]?.id||'',from:'',to:'',off:'',attendanceMode:'fixed',leaveType});
+    emps.push({...fields,active:statusText?!inactive:true,dept:deptId||depts[0]?.id||'',from:'',to:'',off:'',attendanceMode:'fixed',leaveType});
     added++;
    }
   }
