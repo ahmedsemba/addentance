@@ -1,0 +1,824 @@
+(function () {
+  'use strict';
+
+  let hrMaster = { active: [], former: [], formerOld: [], unmatchedLeave: [] };
+  let hrDbPromise = null;
+
+  function openHrDb() {
+    if (hrDbPromise) return hrDbPromise;
+    hrDbPromise = new Promise(function (resolve, reject) {
+      if (!window.indexedDB) return reject(new Error('المتصفح لا يدعم التخزين المحلي المتقدم'));
+      const request = indexedDB.open('AhmedHRPrivateData', 2);
+      request.onupgradeneeded = function () {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('records')) db.createObjectStore('records');
+        if (!db.objectStoreNames.contains('documents')) db.createObjectStore('documents', { keyPath: 'id' });
+      };
+      request.onsuccess = function () { resolve(request.result); };
+      request.onerror = function () { reject(request.error || new Error('تعذر فتح قاعدة البيانات المحلية')); };
+    });
+    return hrDbPromise;
+  }
+
+  async function loadHrMaster() {
+    try {
+      const db = await openHrDb();
+      const value = await new Promise(function (resolve, reject) {
+        const tx = db.transaction('records', 'readonly');
+        const req = tx.objectStore('records').get('employeeMaster');
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { reject(req.error); };
+      });
+      if (value && typeof value === 'object') hrMaster = value;
+    } catch (err) {
+      console.warn('HR local database:', err);
+    }
+  }
+
+  async function saveHrMaster() {
+    const db = await openHrDb();
+    return new Promise(function (resolve, reject) {
+      const tx = db.transaction('records', 'readwrite');
+      tx.objectStore('records').put(hrMaster, 'employeeMaster');
+      tx.oncomplete = function () { resolve(true); };
+      tx.onerror = function () { reject(tx.error || new Error('تعذر حفظ ملفات العاملين')); };
+    });
+  }
+
+  function normCode(v) { return String(v == null ? '' : v).trim(); }
+
+  function findMasterRecord(code) {
+    const c = normCode(code);
+    const groups = [hrMaster.active || [], hrMaster.former || [], hrMaster.formerOld || [], hrMaster.unmatchedLeave || []];
+    for (const group of groups) {
+      const found = group.find(function (x) { return normCode(x.code) === c; });
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function nameForCode(code) {
+    const emp = emps.find(function (x) { return normCode(x.code) === normCode(code); });
+    const master = findMasterRecord(code);
+    return (master && master.name) || (emp && emp.name) || '';
+  }
+
+  function typeForCode(code) {
+    const emp = emps.find(function (x) { return normCode(x.code) === normCode(code); });
+    const master = findMasterRecord(code);
+    return (master && master.leaveTypeCode) || (emp && emp.leaveType) || '';
+  }
+
+  function addHrTab() {
+    const tabs=document.querySelector('.tabs'),container=document.querySelector('.container');
+    if(!tabs||!container||document.getElementById('tab-hrdata'))return;
+    const tab=document.createElement('div');tab.className='tab';tab.textContent='ملفات العاملين';
+    tab.setAttribute('onclick',"showTab('hrdata')");tab.addEventListener('click',()=>setTimeout(renderHRData,0));tabs.appendChild(tab);
+    const panel=document.createElement('div');panel.id='tab-hrdata';panel.className='card';panel.style.display='none';
+    panel.innerHTML=
+      '<h3>إدارة ملفات العاملين — بحث وتعديل وحذف واستيراد وتصدير</h3>'+
+      '<div class="edit-box"><b>استيراد ملفات العاملين</b><div class="flex" style="margin-top:8px"><input type="file" id="hrExcelFile" accept=".xlsx,.xls,.csv" style="max-width:360px"><button class="btn-primary" id="hrExcelImportBtn">معاينة ودمج العاملين</button><button class="btn-danger" id="hrExcelReplaceBtn">استبدال القوائم بالكامل</button></div>'+
+      '<div class="small">الدمج يحدّث السجلات حسب الكود. الاستبدال يستبدل قوائم العاملين الحاليين والمستقيلين فقط، ولا يمسح سجلات الحضور التاريخية أو حركات الإجازات أو المستندات.</div><div id="hrExcelImportMsg" class="small" style="margin-top:6px"></div>'+
+      '<hr style="border:0;border-top:1px solid #e5edf1;margin:12px 0"><b>نسخة بيانات العاملين والإجازات</b><div class="flex" style="margin-top:8px"><input type="file" id="hrDataFile" accept=".json,application/json" style="max-width:360px"><button class="btn-primary" id="hrImportBtn">استيراد النسخة</button><button class="btn-sec" id="hrExportBtn">تصدير النسخة</button><button class="btn-blue" id="hrExportExcelBtn">تصدير Excel</button></div><div id="hrImportMsg" class="small" style="margin-top:6px"></div></div>'+
+      '<div class="edit-box"><b>إضافة / تعديل سجل عامل</b>'+
+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:10px">'+
+'<div><label class="small">كود الموظف *</label><input id="hrEditCode" placeholder="كود الموظف"></div>'+
+'<div><label class="small">اسم الموظف *</label><input id="hrEditName" placeholder="اسم الموظف"></div>'+
+'<div><label class="small">المصنع / الفرع</label><input id="hrEditFactory" placeholder="المصنع"></div>'+
+'<div><label class="small">الإدارة</label><input id="hrEditDept" placeholder="الإدارة"></div>'+
+'<div><label class="small">الوظيفة</label><input id="hrEditJob" placeholder="الوظيفة"></div>'+
+'<div><label class="small">تاريخ التعيين</label><input id="hrEditHire" type="date"></div>'+
+'<div><label class="small">نوع الموظف</label><select id="hrEditType"><option value="">غير محدد</option><option value="resident">مقيم</option><option value="migrant">مغترب</option></select></div>'+
+'<div><label class="small">الحالة</label><select id="hrEditGroup"><option value="active">عامل حالي</option><option value="former">مستقيل</option><option value="formerOld">مستقيل قديم</option></select></div>'+
+'<div><label class="small">تاريخ الاستقالة</label><input id="hrEditResign" type="date"></div>'+
+'<div><label class="small">رقم الموبايل</label><input id="hrEditMobile" placeholder="01xxxxxxxxx"></div>'+
+'<div><label class="small">العنوان</label><input id="hrEditAddress" placeholder="العنوان"></div>'+
+'<div><label class="small">الرقم القومي</label><input id="hrEditNationalId" placeholder="14 رقم"></div>'+
+'<div><label class="small">تاريخ انتهاء البطاقة</label><input id="hrEditNationalIdExpiry" type="date"></div>'+
+'<div><label class="small">تاريخ الميلاد</label><input id="hrEditBirthDate" type="date"></div>'+
+'<div><label class="small">أصل شهادة ميلاد</label><select id="hrEditBirthCert"><option value="">—</option><option value="نعم">نعم</option><option value="لا">لا</option></select></div>'+
+'<div><label class="small">أصل مؤهل</label><select id="hrEditQualOriginal"><option value="">—</option><option value="نعم">نعم</option><option value="لا">لا</option></select></div>'+
+'<div><label class="small">نوع المؤهل</label><input id="hrEditQualType" placeholder="دبلوم / بكالوريوس..."></div>'+
+'<div><label class="small">التقدير</label><input id="hrEditQualGrade" placeholder="مقبول / جيد..."></div>'+
+'<div><label class="small">أصل شهادة تجنيد</label><select id="hrEditMilitary"><option value="">—</option><option value="نعم">نعم</option><option value="لا">لا</option><option value="معفي">معفي</option></select></div>'+
+'<div><label class="small">فيش وتشبيه</label><select id="hrEditFish"><option value="">—</option><option value="نعم">نعم</option><option value="لا">لا</option></select></div>'+
+'<div><label class="small">تحليل مخدرات</label><select id="hrEditDrugTest"><option value="">—</option><option value="نعم">نعم</option><option value="لا">لا</option></select></div>'+
+'<div><label class="small">صور شخصية</label><select id="hrEditPhotos"><option value="">—</option><option value="نعم">نعم</option><option value="لا">لا</option></select></div>'+
+'<div><label class="small">رخصة قيادة</label><select id="hrEditLicense"><option value="">—</option><option value="نعم">نعم</option><option value="لا">لا</option></select></div>'+
+'<div><label class="small">تاريخ انتهاء الرخصة</label><input id="hrEditLicenseExpiry" type="date"></div>'+
+'<div><label class="small">الرقم التأميني</label><input id="hrEditInsuranceNo" placeholder="الرقم التأميني"></div>'+
+'<div><label class="small">الوظيفة في التأمين</label><input id="hrEditInsuranceJob" placeholder="الوظيفة التأمينية"></div>'+
+'<div><label class="small">المبلغ المؤمن عليه</label><input id="hrEditInsuranceAmount" placeholder="المبلغ"></div>'+
+'</div>'+
+'<div class="flex" style="margin-top:12px"><button class="btn-primary" id="hrSaveEditBtn">حفظ السجل</button><button class="btn-sec" id="hrCancelEditBtn">مسح الحقول</button></div>'+
+'<div class="small" style="margin-top:6px">الكود لا يتغير عند تعديل سجل موجود حتى لا تنفصل عنه حركات الحضور والإجازات.</div></div>'+
+      '<div class="flex" style="margin-bottom:8px;align-items:center"><input id="hrSearch" placeholder="بحث بالكود أو الاسم أو الوظيفة" style="max-width:240px"><select id="hrStatusFilter" style="max-width:170px"><option value="all">كل الحالات</option><option value="active">العاملون حاليًا</option><option value="former">المستقيلون</option><option value="formerOld">مستقيل قديم</option><option value="unmatchedLeave">أكواد إجازات غير مرتبطة</option></select><select id="hrFactoryFilter" style="max-width:180px"><option value="">كل المصانع</option></select><input id="hrDeptFilter" placeholder="فلتر الإدارة" style="max-width:160px"><button class="btn-sec" id="hrClearFiltersBtn">مسح الفلاتر</button></div>'+
+      '<div class="bulk-bar"><label><input type="checkbox" id="hrSelectVisible" style="width:auto;min-height:0"> تحديد النتائج الظاهرة</label><button class="btn-blue" id="hrBulkEditBtn">تعديل مصنع / إدارة للمحدد</button><button class="btn-danger" id="hrDeleteSelectedBtn">حذف المحدد</button><button class="btn-danger" id="hrDeleteFilteredBtn">حذف نتائج الفلتر</button><button class="btn-danger" id="hrDeleteAllBtn">حذف كل ملفات العاملين</button><button class="btn-sec" id="hrExportFilteredBtn">تصدير النتائج Excel</button></div>'+
+      '<div id="hrDataSummary" class="summary"></div><div style="overflow:auto;max-height:55vh"><table id="hrDataTable"><thead><tr><th>تحديد</th><th>الكود</th><th>الاسم</th><th>المصنع / الفرع</th><th>الإدارة</th><th>الوظيفة</th><th>تاريخ التعيين</th><th>الحالة</th><th>التفاصيل</th><th>تعديل</th><th>حذف</th></tr></thead><tbody></tbody></table></div>'+
+      '<div id="hrDetailBox" class="edit-box" style="display:none;margin-top:12px"><div class="flex" style="justify-content:space-between"><b id="hrDetailTitle">تفاصيل العامل</b><button class="btn-sec" id="hrDetailClose">إغلاق</button></div><div style="overflow:auto;max-height:50vh"><table id="hrDetailTable"><tbody></tbody></table></div><hr><b>مستندات الموظف (على هذا الجهاز)</b><div class="flex"><input type="file" id="hrDocFiles" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"><button class="btn-primary" id="hrDocSaveBtn">حفظ المستندات</button></div><div id="hrDocList" class="small"></div></div>';
+    container.appendChild(panel);
+    const on=(id,fn)=>document.getElementById(id).addEventListener('click',fn);
+    on('hrExcelImportBtn',()=>importEmployeeWorkbook(false));on('hrExcelReplaceBtn',()=>importEmployeeWorkbook(true));
+    on('hrImportBtn',importHRPackage);on('hrExportBtn',exportHRPackage);on('hrExportExcelBtn',exportEmployeeWorkbook);
+    document.getElementById('hrSearch').addEventListener('input',renderHRData);
+    document.getElementById('hrStatusFilter').addEventListener('change',renderHRData);
+    document.getElementById('hrFactoryFilter').addEventListener('change',renderHRData);
+    document.getElementById('hrDeptFilter').addEventListener('input',renderHRData);
+    on('hrClearFiltersBtn',()=>{document.getElementById('hrSearch').value='';document.getElementById('hrStatusFilter').value='all';document.getElementById('hrFactoryFilter').value='';document.getElementById('hrDeptFilter').value='';renderHRData();});
+    on('hrSelectVisible',function(){window.hrSelectedKeys=window.hrSelectedKeys||new Set();document.querySelectorAll('.hrRowSelect').forEach(x=>{x.checked=this.checked;if(this.checked)window.hrSelectedKeys.add(x.dataset.key);else window.hrSelectedKeys.delete(x.dataset.key);});});
+    on('hrSaveEditBtn',saveHRRecordEdit);on('hrCancelEditBtn',clearHRRecordEdit);
+    on('hrBulkEditBtn',bulkEditHRRecords);on('hrDeleteSelectedBtn',()=>deleteHRRecords('selected'));
+    on('hrDeleteFilteredBtn',()=>deleteHRRecords('filtered'));on('hrDeleteAllBtn',()=>deleteHRRecords('all'));
+    on('hrExportFilteredBtn',exportFilteredHRRecords);on('hrDocSaveBtn',saveEmployeeDocuments);
+    on('hrDetailClose',()=>{document.getElementById('hrDetailBox').style.display='none';});
+  }
+
+
+  function exportEmployeeWorkbook() {
+    if(!window.XLSX){alert('مكتبة Excel لم تُحمّل');return;}
+    const groups=[['في العمل',hrMaster.active||[]],['المستقيلين',hrMaster.former||[]],['المستقيلين قديم',hrMaster.formerOld||[]]];
+    const wb=XLSX.utils.book_new();
+    groups.forEach(([sheet,records])=>{
+      const extraKeys=Array.from(new Set(records.flatMap(r=>Object.keys(r.fields||{}))));
+      const headers=['كود الموظف','الاسم','المصنع / الفرع','الإدارة','الوظيفة','تاريخ التعيين','نوع الموظف','الحالة','سبب إنهاء الخدمة','تاريخ إنهاء الخدمة'].concat(extraKeys);
+      const rows=[headers];
+      records.forEach(r=>{
+        const base=[r.code||'',r.name||'',r.factory||'',r.departmentCode||r.department||'',r.job||'',r.hireDate||'',r.leaveTypeLabel||r.leaveTypeCode||'',r.status||'',r.reason||'',r.terminationDate||''];
+        rows.push(base.concat(extraKeys.map(k=>(r.fields||{})[k]??'')));
+      });
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=headers.map(h=>({wch:Math.min(28,Math.max(12,String(h).length+3))}));
+      XLSX.utils.book_append_sheet(wb,ws,sheet);
+    });
+    XLSX.writeFile(wb,'ملف_العاملين_الشركة_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  }
+
+  function normalizeHeader(v) {
+    return String(v == null ? '' : v).toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'')
+      .replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()\/]/g,'');
+  }
+  function dateValue(v) {
+    if (v instanceof Date && !isNaN(v)) return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+    if (typeof v === 'number' && v > 10000 && window.XLSX) {
+      const d = XLSX.SSF.parse_date_code(v);
+      return d ? d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0') : '';
+    }
+    const s=String(v||'').trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+    const p=s.split(/[\/.-]/);
+    if(p.length===3) return p[0].length===4 ? p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0') : p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');
+    return '';
+  }
+  async function importEmployeeWorkbook(replaceExisting) {
+    const input=document.getElementById('hrExcelFile'), msg=document.getElementById('hrExcelImportMsg');
+    const file=input && input.files && input.files[0];
+    if(!file){alert('اختار ملف العاملين Excel أولاً');return;}
+    try {
+      const bytes=new Uint8Array(await file.arrayBuffer());
+      let sheets=[];
+      if(file.name.toLowerCase().endsWith('.csv')) {
+        const txt=new TextDecoder('windows-1256').decode(bytes);
+        const delim=(txt.split(/\r?\n/)[0]||'').includes(';')?';':',';
+        const rows=txt.split(/\r?\n/).filter(x=>x.trim()).map(line=>{const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'&&q){cur+='"';i++;}else if(ch==='"')q=!q;else if(ch===delim&&!q){out.push(cur.trim());cur='';}else cur+=ch;}out.push(cur.trim());return out;});
+        sheets=[{name:'في العمل',rows}];
+      } else {
+        if(!window.XLSX) throw new Error('مكتبة Excel لم تُحمّل؛ حدّث الصفحة وحاول مرة أخرى');
+        const wb=XLSX.read(bytes,{type:'array',cellDates:true});
+        sheets=wb.SheetNames.map(name=>({name,rows:XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:''})}));
+      }
+      const staged=[];
+      let skipped=0;
+      sheets.forEach(sh=>{
+        const sheetName=String(sh.name||'');
+        const lower=normalizeHeader(sheetName);
+        let group=lower.includes('قديم')?'formerOld':(lower.includes('مستقيل')||lower.includes('انهاء')?'former':'active');
+        const rows=sh.rows||[];
+        let hi=rows.findIndex(row=>{const h=row.map(normalizeHeader);return h.some(x=>['الكود','كود','كودالموظف','رقمالموظف','رقمالبصمه','employeeid','empcode'].includes(x))&&h.some(x=>['الاسم','اسمالموظف','name','employeename'].includes(x));});
+        if(hi<0){skipped+=rows.length;return;}
+        const heads=rows[hi].map(normalizeHeader);
+        const col=(keys)=>heads.findIndex(h=>keys.includes(h));
+        const ix={code:col(['الكود','كود','كودالموظف','رقمالموظف','رقمالبصمه','employeeid','empcode']),name:col(['الاسم','اسمالموظف','name','employeename']),factory:col(['المصنع','الفرع','مصنع','الجهه','جهةالعمل','location','branch']),dept:col(['الاداره','كودالاداره','الادارة','department','dept']),job:col(['الوظيفه','المسميالوظيفي','الوظيفة','job','title']),hire:col(['تاريخالتعيين','تاريخالتعين','التعيين','hiredate','joiningdate']),type:col(['نوعالعامل','نوعالاجازه','نوعالاجازة','مقيممغترب','residencytype']),status:col(['الحاله','الحالة','status']),reason:col(['سببانهاءالخدمه','سببالترك','reason'])};
+        for(let i=hi+1;i<rows.length;i++){
+          const row=rows[i]||[];
+          const code=String(row[ix.code]??'').trim(), name=String(row[ix.name]??'').trim();
+          if(!code||!name){if(row.some(v=>String(v??'').trim()))skipped++;continue;}
+          const fields={};heads.forEach((h,j)=>{if(h)fields[String(rows[hi][j]||('عمود '+(j+1)))] = row[j] instanceof Date ? dateValue(row[j]) : row[j]??'';});
+          const typeRaw=String(row[ix.type]??'');
+          const leaveTypeCode=/مغترب|migrant/i.test(typeRaw)?'migrant':(/مقيم|resident/i.test(typeRaw)?'resident':'');
+          const record={code,name,factory:String(row[ix.factory]??'').trim(),departmentCode:String(row[ix.dept]??'').trim(),job:String(row[ix.job]??'').trim(),hireDate:dateValue(row[ix.hire]),leaveTypeCode,leaveTypeLabel:leaveTypeCode==='migrant'?'مغترب':leaveTypeCode==='resident'?'مقيم':'',status:String(row[ix.status]??'').trim(),reason:String(row[ix.reason]??'').trim(),fields,sourceSheet:sheetName};
+          staged.push({group,record});
+        }
+      });
+      if(!staged.length) throw new Error('لم أجد صفوفًا بعناوين مفهومة. تأكد من وجود عمودي كود الموظف والاسم.');
+      const counts={active:0,former:0,formerOld:0};
+      staged.forEach(x=>counts[x.group]++);
+      msg.textContent='معاينة: عاملون '+counts.active+' | مستقيليون '+counts.former+' | مستقيليون قديم '+counts.formerOld+' | صفوف غير مقروءة '+skipped+'. '+(replaceExisting?'سيتم استبدال القوائم الحالية.':'سيتم الدمج مع الموجود.')+' راجع الأعداد قبل الاعتماد.';
+      if (replaceExisting) {
+        const warning = 'تنبيه مهم: سيتم استبدال قوائم ملفات العاملين الحالية بالكامل بالملف الجديد، بما فيها سجلات المستقيلين غير الموجودة في الملف. سيتم تنزيل نسخة احتياطية تلقائيًا قبل الاستبدال. لن يتم حذف سجلات الحضور والبصمة أو حركات وأرصدة الإجازات أو مستندات الموظفين. هل تريد المتابعة؟';
+        if (!confirm('تمت قراءة '+staged.length+' سجل. '+warning)) return;
+        exportHRPackage();
+        hrMaster = {
+          active: staged.filter(x=>x.group==='active').map(x=>x.record),
+          former: staged.filter(x=>x.group==='former').map(x=>x.record),
+          formerOld: staged.filter(x=>x.group==='formerOld').map(x=>x.record),
+          unmatchedLeave: hrMaster.unmatchedLeave || []
+        };
+        // Keep old attendance identities for historical reports, but exclude them from new daily work.
+        emps.forEach(emp=>{ emp.active=false; });
+      } else {
+        if(!confirm('تمت قراءة الملف. سيتم دمج '+staged.length+' سجل حسب كود الموظف مع الاحتفاظ بالبيانات الحالية. هل تعتمد الاستيراد؟')) return;
+      }
+      staged.forEach(({group,record})=>{
+        ['active','former','formerOld'].forEach(k=>{hrMaster[k]=(hrMaster[k]||[]).filter(x=>normCode(x.code)!==normCode(record.code));});
+        hrMaster[group]=hrMaster[group]||[];
+        const idx=hrMaster[group].findIndex(x=>normCode(x.code)===normCode(record.code));
+        if(idx>=0) hrMaster[group][idx]=Object.assign({},hrMaster[group][idx],record); else hrMaster[group].push(record);
+        if(group==='active' && /عبور|obour/i.test(record.factory)) {
+          let deptId='';
+          if(record.departmentCode) {
+            let d=depts.find(x=>normCode(x.name)===normCode(record.departmentCode));
+            if(!d){d={id:'hrd_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),name:record.departmentCode,from:'08:00',to:'16:00',off:'Friday'};depts.push(d);}
+            deptId=d.id;
+          }
+          let emp=emps.find(x=>normCode(x.code)===normCode(record.code));
+          if(!emp){emp={code:record.code,name:record.name,dept:deptId,from:'',to:'',active:true};emps.push(emp);}
+          else {emp.name=record.name;if(deptId)emp.dept=deptId;emp.active=true;}
+          if(record.hireDate)emp.hireDate=record.hireDate;
+          if(record.leaveTypeCode)emp.leaveType=record.leaveTypeCode;
+        }
+      });
+      await saveHrMaster(); saveAll(); renderHRData(); renderEmps();
+      msg.textContent=(replaceExisting?'تم استبدال قوائم العاملين بنجاح. ':'تم الدمج بنجاح. ')+'عدد السجلات: '+staged.length+'. تم تحديث قائمة حضور العبور للموظفين الحاليين المطابقين فقط. تم الاحتفاظ بسجلات الحضور والإجازات والمستندات. الصفوف غير المقروءة: '+skipped+'.';
+    } catch(err) { msg.textContent='تعذر الاستيراد: '+err.message; alert('تعذر استيراد ملف العاملين: '+err.message); }
+  }
+  async function saveEmployeeDocuments() {
+    const code=normCode(window.currentHRDocumentCode), input=document.getElementById('hrDocFiles');
+    const files=Array.from(input && input.files || []);
+    if(!code || !files.length){alert('اختار مستندًا واحدًا على الأقل');return;}
+    if(files.some(f=>f.size>20*1024*1024)){alert('حجم الملف الواحد يجب ألا يتجاوز 20 ميجابايت');return;}
+    try {
+      const db=await openHrDb();
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction('documents','readwrite'),store=tx.objectStore('documents');
+        files.forEach((file,i)=>store.put({id:code+'_'+Date.now()+'_'+i,code,name:file.name,type:file.type||'application/octet-stream',size:file.size,addedAt:new Date().toISOString(),blob:file}));
+        tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('تعذر حفظ المستندات'));
+      });
+      input.value=''; await renderEmployeeDocuments(code);
+      alert('تم حفظ المستندات على هذا الجهاز فقط.');
+    } catch(err){alert('تعذر حفظ المستندات: '+err.message);}
+  }
+  async function renderEmployeeDocuments(code) {
+    const box=document.getElementById('hrDocList'); if(!box)return;
+    box.textContent='جارٍ تحميل المستندات...';
+    try {
+      const db=await openHrDb();
+      const docs=await new Promise((resolve,reject)=>{const tx=db.transaction('documents','readonly'),req=tx.objectStore('documents').getAll();req.onsuccess=()=>resolve(req.result.filter(x=>x.code===code));req.onerror=()=>reject(req.error);});
+      box.innerHTML='';
+      if(!docs.length){box.textContent='لا توجد مستندات محفوظة لهذا الموظف.';return;}
+      docs.forEach(doc=>{
+        const row=document.createElement('div');row.className='flex';row.style.marginTop='6px';
+        const label=document.createElement('span');label.textContent=doc.name+' ('+(doc.size/1024).toFixed(0)+' KB)';row.appendChild(label);
+        const open=document.createElement('button');open.className='btn-blue';open.textContent='فتح / تنزيل';open.addEventListener('click',()=>{const url=URL.createObjectURL(doc.blob);const a=document.createElement('a');a.href=url;a.download=doc.name;a.target='_blank';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);});row.appendChild(open);
+        const del=document.createElement('button');del.className='btn-danger';del.textContent='حذف';del.addEventListener('click',async()=>{if(!confirm('حذف المستند '+doc.name+'؟'))return;const db2=await openHrDb();await new Promise((resolve,reject)=>{const tx=db2.transaction('documents','readwrite');tx.objectStore('documents').delete(doc.id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});renderEmployeeDocuments(code);});row.appendChild(del);
+        box.appendChild(row);
+      });
+    } catch(err){box.textContent='تعذر تحميل المستندات: '+err.message;}
+  }
+
+
+  async function archiveHRRecord(code) {
+    const record=findMasterRecord(code);
+    if(!record)return;
+    const kind=prompt('اكتب نوع إنهاء الخدمة: استقالة أو فصل');
+    if(!kind)return;
+    const k=/فصل|رفد|dismiss/i.test(kind)?'فصل':'استقالة';
+    const reason=prompt('سبب إنهاء الخدمة (اختياري):')||'';
+    const date=prompt('تاريخ آخر يوم عمل بصيغة YYYY-MM-DD:',new Date().toISOString().slice(0,10));
+    if(date&&!/^\d{4}-\d{2}-\d{2}$/.test(date)){alert('صيغة التاريخ غير صحيحة');return;}
+    if(!confirm('سيُنقل الموظف إلى سجل المستقيلين/إنهاء الخدمة، وسيُستبعد من اليومية الجديدة مع الاحتفاظ بسجل حضوره السابق. متابعة؟'))return;
+    hrMaster.active=(hrMaster.active||[]).filter(x=>normCode(x.code)!==normCode(code));
+    record.status=k;record.reason=reason;record.terminationDate=date||new Date().toISOString().slice(0,10);
+    hrMaster.former=hrMaster.former||[];hrMaster.former.push(record);
+    const emp=emps.find(x=>normCode(x.code)===normCode(code));
+    if(emp)emp.active=false;
+    await saveHrMaster();saveAll();renderHRData();if(typeof renderEmps==='function')renderEmps();if(typeof renderDaily==='function')renderDaily();
+  }
+
+  function getHRGroups(filter) {
+    const groups = [];
+    if (filter === 'all' || filter === 'active') groups.push({ label: 'عامل حالي', rows: hrMaster.active || [] });
+    if (filter === 'all' || filter === 'former') groups.push({ label: 'مستقيل', rows: hrMaster.former || [] });
+    if (filter === 'all' || filter === 'formerOld') groups.push({ label: 'مستقيل قديم', rows: hrMaster.formerOld || [] });
+    if (filter === 'all' || filter === 'unmatchedLeave') groups.push({ label: 'غير موجود في ملف العاملين', rows: hrMaster.unmatchedLeave || [] });
+    return groups;
+  }
+
+  let hrVisibleRecords=[];
+  function renderHRData() {
+    const body=document.querySelector('#hrDataTable tbody');if(!body)return;
+    const filter=document.getElementById('hrStatusFilter').value||'all';
+    const search=(document.getElementById('hrSearch').value||'').trim().toLowerCase();
+    const factoryFilter=document.getElementById('hrFactoryFilter').value||'';
+    const deptFilter=(document.getElementById('hrDeptFilter').value||'').trim().toLowerCase();
+    const records=[];getHRGroups(filter).forEach(g=>(g.rows||[]).forEach(r=>records.push({record:r,statusLabel:g.label,group:g.label==='عامل حالي'?'active':g.label==='مستقيل'?'former':g.label==='مستقيل قديم'?'formerOld':'unmatchedLeave'})));
+    const factories=Array.from(new Set(records.map(x=>String(x.record.factory||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'ar'));
+    const fs=document.getElementById('hrFactoryFilter'),old=fs.value;fs.innerHTML='<option value="">كل المصانع</option>';factories.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;fs.appendChild(o);});if(factories.includes(old))fs.value=old;
+    hrVisibleRecords=records.filter(item=>{const r=item.record;const hay=[r.code,r.name,r.factory,r.departmentCode,r.department,r.job,item.statusLabel].join(' ').toLowerCase();return (!search||hay.includes(search))&&(!factoryFilter||String(r.factory||'').trim()===factoryFilter)&&(!deptFilter||String(r.departmentCode||r.department||'').toLowerCase().includes(deptFilter));});
+    body.innerHTML='';
+    hrVisibleRecords.forEach(item=>{
+      const r=item.record,key=item.group+'|'+normCode(r.code),tr=document.createElement('tr');
+      const checkTd=document.createElement('td'),check=document.createElement('input');check.type='checkbox';check.className='hrRowSelect';check.dataset.key=key;check.style.width='auto';check.checked=window.hrSelectedKeys&&window.hrSelectedKeys.has(key);checkTd.appendChild(check);tr.appendChild(checkTd);
+      [r.code||'',r.name||'',r.factory||'',r.departmentCode||r.department||'',r.job||'',r.hireDate||'',item.statusLabel].forEach(v=>{const td=document.createElement('td');td.textContent=v==null?'':String(v);tr.appendChild(td);});
+      const detailTd=document.createElement('td'),detail=document.createElement('button');detail.className='btn-sec';detail.textContent='عرض';detail.addEventListener('click',()=>showHRDetails(r,item.statusLabel));detailTd.appendChild(detail);tr.appendChild(detailTd);
+      const editTd=document.createElement('td'),edit=document.createElement('button');edit.className='btn-blue';edit.textContent='تعديل';edit.addEventListener('click',()=>fillHRRecordEdit(r,item.group));editTd.appendChild(edit);tr.appendChild(editTd);
+      const delTd=document.createElement('td'),del=document.createElement('button');del.className='btn-danger';del.textContent='حذف';del.addEventListener('click',()=>{window.hrSelectedKeys=new Set([key]);deleteHRRecords('selected');});delTd.appendChild(del);tr.appendChild(delTd);body.appendChild(tr);
+    });
+    body.querySelectorAll('.hrRowSelect').forEach(c=>c.addEventListener('change',()=>{window.hrSelectedKeys=window.hrSelectedKeys||new Set();if(c.checked)window.hrSelectedKeys.add(c.dataset.key);else window.hrSelectedKeys.delete(c.dataset.key);}));
+    const count=k=>(hrMaster[k]||[]).length,summary=document.getElementById('hrDataSummary');
+    summary.textContent='العاملون: '+count('active')+' | المستقيلون: '+count('former')+' | مستقيليون قديم: '+count('formerOld')+' | أكواد إجازات غير مرتبطة: '+count('unmatchedLeave')+' | نتائج الفلتر: '+hrVisibleRecords.length;
+    const selectAll=document.getElementById('hrSelectVisible');if(selectAll)selectAll.checked=hrVisibleRecords.length>0&&hrVisibleRecords.every(x=>(window.hrSelectedKeys||new Set()).has(x.group+'|'+normCode(x.record.code)));
+  }
+
+  window.hrSelectedKeys=window.hrSelectedKeys||new Set();
+  function clearHRRecordEdit(){
+    const ids=['hrEditCode','hrEditName','hrEditFactory','hrEditDept','hrEditJob','hrEditHire','hrEditResign','hrEditMobile','hrEditAddress','hrEditNationalId','hrEditNationalIdExpiry','hrEditBirthDate','hrEditQualType','hrEditQualGrade','hrEditLicenseExpiry','hrEditInsuranceNo','hrEditInsuranceJob','hrEditInsuranceAmount'];
+    ids.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    ['hrEditType','hrEditBirthCert','hrEditQualOriginal','hrEditMilitary','hrEditFish','hrEditDrugTest','hrEditPhotos','hrEditLicense'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    const g=document.getElementById('hrEditGroup'); if(g) g.value='active';
+    const c=document.getElementById('hrEditCode'); if(c) c.disabled=false;
+    window.hrEditingKey=null;
+  }
+  function fillHRRecordEdit(r,group){
+    const f=r.fields||{};
+    document.getElementById('hrEditCode').value=r.code||'';
+    document.getElementById('hrEditCode').disabled=true;
+    document.getElementById('hrEditName').value=r.name||'';
+    document.getElementById('hrEditFactory').value=r.factory||'';
+    document.getElementById('hrEditDept').value=r.departmentCode||r.department||'';
+    document.getElementById('hrEditJob').value=r.job||'';
+    document.getElementById('hrEditHire').value=r.hireDate||'';
+    document.getElementById('hrEditType').value=r.leaveTypeCode||'';
+    document.getElementById('hrEditGroup').value=group;
+    document.getElementById('hrEditResign').value=r.terminationDate||f['تاريخ الاستقالة']||'';
+    document.getElementById('hrEditMobile').value=f['رقم الموبايل']||f.mobile||'';
+    document.getElementById('hrEditAddress').value=f['العنوان']||f.address||'';
+    document.getElementById('hrEditNationalId').value=f['الرقم القومي']||f.nationalId||'';
+    document.getElementById('hrEditNationalIdExpiry').value=f['تاريخ انتهاء البطاقة']||f.nationalIdExpiry||'';
+    document.getElementById('hrEditBirthDate').value=f['تاريخ الميلاد']||f.birthDate||'';
+    document.getElementById('hrEditBirthCert').value=f['أصل شهادة ميلاد']||'';
+    document.getElementById('hrEditQualOriginal').value=f['أصل مؤهل']||'';
+    document.getElementById('hrEditQualType').value=f['نوع المؤهل']||'';
+    document.getElementById('hrEditQualGrade').value=f['التقدير']||'';
+    document.getElementById('hrEditMilitary').value=f['أصل شهادة تجنيد']||'';
+    document.getElementById('hrEditFish').value=f['فيش وتشبيه']||'';
+    document.getElementById('hrEditDrugTest').value=f['تحليل مخدرات']||'';
+    document.getElementById('hrEditPhotos').value=f['صور شخصية']||'';
+    document.getElementById('hrEditLicense').value=f['رخصة قيادة']||'';
+    document.getElementById('hrEditLicenseExpiry').value=f['تاريخ انتهاء الرخصة']||'';
+    document.getElementById('hrEditInsuranceNo').value=f['الرقم التأميني']||'';
+    document.getElementById('hrEditInsuranceJob').value=f['الوظيفة في التأمين']||'';
+    document.getElementById('hrEditInsuranceAmount').value=f['المبلغ المؤمن عليه']||'';
+    window.hrEditingKey=group+'|'+normCode(r.code);
+    document.getElementById('hrEditName').focus();
+  }
+  async function saveHRRecordEdit(){
+    const code=normCode(document.getElementById('hrEditCode').value);
+    const name=document.getElementById('hrEditName').value.trim();
+    if(!code||!name) return alert('اكتب كود واسم الموظف');
+    const group=document.getElementById('hrEditGroup').value;
+    const oldKey=window.hrEditingKey;
+
+    // اجمع الحقول الإضافية
+    const extraFields = {
+      'رقم الموبايل': document.getElementById('hrEditMobile').value.trim(),
+      'العنوان': document.getElementById('hrEditAddress').value.trim(),
+      'الرقم القومي': document.getElementById('hrEditNationalId').value.trim(),
+      'تاريخ انتهاء البطاقة': document.getElementById('hrEditNationalIdExpiry').value,
+      'تاريخ الميلاد': document.getElementById('hrEditBirthDate').value,
+      'أصل شهادة ميلاد': document.getElementById('hrEditBirthCert').value,
+      'أصل مؤهل': document.getElementById('hrEditQualOriginal').value,
+      'نوع المؤهل': document.getElementById('hrEditQualType').value.trim(),
+      'التقدير': document.getElementById('hrEditQualGrade').value.trim(),
+      'أصل شهادة تجنيد': document.getElementById('hrEditMilitary').value,
+      'فيش وتشبيه': document.getElementById('hrEditFish').value,
+      'تحليل مخدرات': document.getElementById('hrEditDrugTest').value,
+      'صور شخصية': document.getElementById('hrEditPhotos').value,
+      'رخصة قيادة': document.getElementById('hrEditLicense').value,
+      'تاريخ انتهاء الرخصة': document.getElementById('hrEditLicenseExpiry').value,
+      'الرقم التأميني': document.getElementById('hrEditInsuranceNo').value.trim(),
+      'الوظيفة في التأمين': document.getElementById('hrEditInsuranceJob').value.trim(),
+      'المبلغ المؤمن عليه': document.getElementById('hrEditInsuranceAmount').value.trim()
+    };
+
+    let old=null, oldGroup=null;
+    if(oldKey){
+      const parts=oldKey.split('|');
+      oldGroup=parts[0];
+      const list=hrMaster[oldGroup]||[];
+      old=list.find(x=>normCode(x.code)===normCode(parts[1]));
+    }
+
+    const record=Object.assign({}, old||{code, fields:{}}, {
+      code,
+      name,
+      factory: document.getElementById('hrEditFactory').value.trim(),
+      departmentCode: document.getElementById('hrEditDept').value.trim(),
+      job: document.getElementById('hrEditJob').value.trim(),
+      hireDate: document.getElementById('hrEditHire').value,
+      leaveTypeCode: document.getElementById('hrEditType').value,
+      leaveTypeLabel: document.getElementById('hrEditType').value==='migrant'?'مغترب':document.getElementById('hrEditType').value==='resident'?'مقيم':'',
+      terminationDate: document.getElementById('hrEditResign').value,
+      fields: Object.assign({}, (old&&old.fields)||{}, extraFields)
+    });
+
+    // امسح من كل المجموعات ثم ضيف في المجموعة المختارة
+    ['active','former','formerOld'].forEach(k=>{
+      hrMaster[k]=(hrMaster[k]||[]).filter(x=>normCode(x.code)!==code);
+    });
+    hrMaster[group]=hrMaster[group]||[];
+    hrMaster[group].push(record);
+
+    // مزامنة مع قائمة الحضور
+    let emp=emps.find(x=>normCode(x.code)===code);
+    if(group==='active'){
+      let deptId='';
+      if(record.departmentCode){
+        let d=depts.find(x=>normCode(x.name)===normCode(record.departmentCode));
+        if(!d){d={id:'hrd_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),name:record.departmentCode,from:'08:00',to:'16:00',off:'Friday'};depts.push(d);}
+        deptId=d.id;
+      }
+      if(emp){emp.name=record.name; if(deptId)emp.dept=deptId; emp.active=true;}
+      else emps.push({code:record.code,name:record.name,dept:deptId,from:'',to:'',active:true,hireDate:record.hireDate||'',leaveType:record.leaveTypeCode||'migrant'});
+      if(record.hireDate && emp) emp.hireDate=record.hireDate;
+      if(record.leaveTypeCode && emp) emp.leaveType=record.leaveTypeCode;
+    } else if(emp){
+      emp.active=false;
+    }
+
+    await saveHrMaster();
+    saveAll();
+    clearHRRecordEdit();
+    renderHRData();
+    if(typeof renderEmps==='function') renderEmps();
+    alert('تم حفظ بيانات الموظف بنجاح');
+  }
+
+  function bulkEditHRRecords(){
+    const keys=Array.from(window.hrSelectedKeys||[]);if(!keys.length)return alert('حدد الموظفين أولاً');
+    const factory=prompt('اكتب اسم المصنع الجديد. اتركه فارغًا للاحتفاظ بالحالي:');if(factory===null)return;
+    const dept=prompt('اكتب الإدارة الجديدة. اتركها فارغة للاحتفاظ بالحالي:');if(dept===null)return;
+    keys.forEach(k=>{const p=k.indexOf('|'),g=k.slice(0,p),code=k.slice(p+1),r=(hrMaster[g]||[]).find(x=>normCode(x.code)===code);if(!r)return;if(factory.trim())r.factory=factory.trim();if(dept.trim())r.departmentCode=dept.trim();const emp=emps.find(e=>normCode(e.code)===code);if(g==='active'&&/عبور|obour/i.test(r.factory||'')){let deptId='';if(r.departmentCode){let d=depts.find(x=>normCode(x.name)===normCode(r.departmentCode));if(!d){d={id:'hrd_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),name:r.departmentCode,from:'08:00',to:'16:00',off:'Friday'};depts.push(d);}deptId=d.id;}if(emp){emp.name=r.name;if(deptId)emp.dept=deptId;emp.active=true;}else emps.push({code:r.code,name:r.name,dept:deptId,from:'',to:'',active:true,hireDate:r.hireDate||'',leaveType:r.leaveTypeCode||'migrant'});}else if(emp)emp.active=false;});
+    saveHrMaster().then(()=>{saveAll();renderHRData();renderEmps();renderDaily();alert('تم تحديث المصنع والإدارة للسجلات المحددة.');});
+  }
+  function exportFilteredHRRecords(){
+    if(!window.XLSX)return alert('مكتبة Excel لم تُحمّل');const rows=[['الكود','الاسم','المصنع','الإدارة','الوظيفة','تاريخ التعيين','الحالة','نوع الإجازة']];
+    hrVisibleRecords.forEach(x=>{const r=x.record;rows.push([r.code||'',r.name||'',r.factory||'',r.departmentCode||r.department||'',r.job||'',r.hireDate||'',x.statusLabel,r.leaveTypeLabel||r.leaveTypeCode||'']);});
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'نتائج الفلتر');XLSX.writeFile(wb,'نتائج_ملفات_العاملين.xlsx');
+  }
+
+  function showHRDetails(record, statusLabel) {
+    const box = document.getElementById('hrDetailBox');
+    const body = document.querySelector('#hrDetailTable tbody');
+    const title = document.getElementById('hrDetailTitle');
+    if (!box || !body) return;
+    title.textContent = (record.code || '') + ' - ' + (record.name || '') + ' (' + statusLabel + ')';
+    body.innerHTML = '';
+    const fields = record.fields || {};
+    const entries = Object.keys(fields).length ? Object.entries(fields) : Object.entries(record);
+    entries.forEach(function (pair) {
+      if (pair[0] === 'fields') return;
+      const tr = document.createElement('tr');
+      const th = document.createElement('th'); th.textContent = pair[0];
+      const td = document.createElement('td'); td.textContent = pair[1] == null ? '' : String(pair[1]);
+      tr.appendChild(th); tr.appendChild(td); body.appendChild(tr);
+    });
+    window.currentHRDocumentCode = normCode(record.code);
+    document.getElementById('hrDocFiles').value = '';
+    renderEmployeeDocuments(window.currentHRDocumentCode);
+    box.style.display = 'block';
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function defaultAttendanceRecord() {
+    return { in1: '', out1: '', delay: '', early: '', noSign: '', permHours: '', permType: 'free',
+      extra: '', extraFactor: 1, absent: false, mission: false, missionPlace: '', rest: false, holiday: false };
+  }
+
+  async function importHRPackage() {
+    const input = document.getElementById('hrDataFile');
+    const msg = document.getElementById('hrImportMsg');
+    const file = input && input.files && input.files[0];
+    if (!file) { alert('اختر ملف بيانات العاملين أولاً'); return; }
+    try {
+      const data = JSON.parse(await file.text());
+      if (!data || data.format !== 'ahmed-hr-import-v1' || !data.employeeMaster ||
+          !Array.isArray(data.employeeMaster.active) || !Array.isArray(data.leaveLedger) ||
+          !data.attendanceLeave || typeof data.attendanceLeave !== 'object') {
+        throw new Error('صيغة الملف غير صحيحة أو غير مكتملة');
+      }
+      if (!confirm('سيتم تحديث ملفات العاملين وسجل الإجازات المستورد فقط، مع الحفاظ على الحضور والانصراف والورديات والإدارات الحالية. هل تريد المتابعة؟')) return;
+
+      hrMaster = data.employeeMaster;
+      await saveHrMaster();
+
+      const importedLedger = data.leaveLedger || [];
+      const manualLedger = window.hrLeaveLedger.filter(function (x) { return !String(x.id || '').startsWith('IMP_'); });
+      const manualKeys = new Set(manualLedger.filter(function (x) {
+        return ['paid', 'unpaid', 'special'].includes(x.kind);
+      }).map(function (x) { return [x.code, x.date, x.kind].join('|'); }));
+      const cleanImported = importedLedger.filter(function (x) {
+        if (!String(x.id || '').startsWith('IMP_')) return false;
+        if (['paid', 'unpaid', 'special'].includes(x.kind) && manualKeys.has([x.code, x.date, x.kind].join('|'))) return false;
+        return true;
+      });
+      window.hrLeaveLedger = manualLedger.concat(cleanImported);
+
+      const leaveProfileMap = new Map((data.leaveProfiles || []).map(function (p) { return [normCode(p.code), p]; }));
+      const activeMasterMap = new Map((hrMaster.active || []).map(function (p) { return [normCode(p.code), p]; }));
+      const importedLeaveCodes = new Set(importedLedger.map(function (x) { return normCode(x.code); }));
+      emps.forEach(function (emp) {
+        const code = normCode(emp.code);
+        const p = leaveProfileMap.get(code);
+        const master = activeMasterMap.get(code);
+        if (master && master.name) emp.name = master.name;
+        if ((p && p.hireDate) || (master && master.hireDate)) emp.hireDate = (p && p.hireDate) || master.hireDate;
+        const typeCode = (p && p.leaveTypeCode) || (master && master.leaveTypeCode);
+        if (typeCode === 'migrant' || typeCode === 'resident') emp.leaveType = typeCode;
+        if (importedLeaveCodes.has(code)) emp.leaveImportedThrough = data.asOf || '2026-11-08';
+      });
+
+      Object.keys(data.attendanceLeave).forEach(function (key) {
+        const patch = data.attendanceLeave[key];
+        const old = attendance[key] || defaultAttendanceRecord();
+        if (!old.leaveStatus || old.leaveSource === 'imported' || old.leaveSource === 'imported_special') {
+          attendance[key] = Object.assign({}, old, patch);
+        }
+      });
+
+      saveAll();
+      saveExtraModules();
+      if (typeof renderDaily === 'function') renderDaily();
+      if (typeof renderLeaveModule === 'function') renderLeaveModule();
+      renderHRData();
+      msg.textContent = 'تم الاستيراد بنجاح: ' + ((hrMaster.active || []).length) + ' عامل حالي، ' +
+        ((hrMaster.former || []).length + (hrMaster.formerOld || []).length) + ' سجل مستقيل، ' +
+        cleanImported.length + ' حركة إجازات مستوردة. تم الحفاظ على الحضور والإدارات والورديات الحالية.';
+    } catch (err) {
+      msg.textContent = 'لم يكتمل الاستيراد: ' + err.message;
+      alert('تعذر استيراد الملف: ' + err.message);
+    }
+  }
+
+  function downloadJSON(filename, payload) {
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function exportHRPackage() {
+    const importedLedger = window.hrLeaveLedger.filter(function (x) { return String(x.id || '').startsWith('IMP_'); });
+    const attendanceLeave = {};
+    Object.keys(attendance).forEach(function (key) {
+      const r = attendance[key];
+      if (r && (r.leaveSource === 'imported' || r.leaveSource === 'imported_special')) {
+        attendanceLeave[key] = {
+          leaveStatus: r.leaveStatus, leaveFraction: r.leaveFraction,
+          absent: r.absent, absent_manual: r.absent_manual, leaveSource: r.leaveSource
+        };
+      }
+    });
+    const importedCodes = new Set(importedLedger.map(function (x) { return normCode(x.code); }));
+    const leaveProfiles = (hrMaster.active || []).filter(function (r) { return importedCodes.has(normCode(r.code)); })
+      .map(function (r) { return { code: r.code, hireDate: r.hireDate, leaveTypeCode: r.leaveTypeCode, leaveTypeLabel: r.leaveTypeLabel }; });
+    downloadJSON('نسخة_ملفات_العاملين_والإجازات.json', {
+      format: 'ahmed-hr-import-v1', asOf: '2026-11-08',
+      employeeMaster: hrMaster, leaveLedger: importedLedger,
+      attendanceLeave: attendanceLeave, leaveProfiles: leaveProfiles
+    });
+  }
+
+  function isoDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function ensureImportedFutureAccruals(asOf) {
+    const now = new Date();
+    const today = isoDate(now);
+    if (asOf > today) asOf = today;
+    let made = 0;
+    emps.filter(function (e) { return e.leaveImportedThrough; }).forEach(function (emp) {
+      if (!emp.hireDate || !['migrant', 'resident'].includes(emp.leaveType)) return;
+      let cursor = new Date('2026-11-26T12:00:00');
+      let guard = 0;
+      while (isoDate(cursor) <= asOf && guard++ < 600) {
+        const date = isoDate(cursor);
+        const exists = window.hrLeaveLedger.some(function (x) { return x.code == emp.code && x.date == date && x.kind == 'accrual'; });
+        if (!exists) {
+          let amount = 0;
+          if (emp.leaveType === 'migrant') {
+            amount = (yearsAt(emp, date) >= 10 && cursor.getMonth() <= 8) ? 6 : 5;
+          } else {
+            const eligible = dateAddMonths(emp.hireDate, 6);
+            if (date >= eligible) {
+              const rate = yearsAt(emp, date) >= 10 ? 30 : 21;
+              const periodStart = new Date(cursor); periodStart.setMonth(periodStart.getMonth() - 1); periodStart.setDate(26);
+              const periodEnd = new Date(cursor); periodEnd.setDate(25);
+              const start = new Date(Math.max(periodStart.getTime(), new Date(eligible + 'T12:00:00').getTime()));
+              const totalDays = Math.round((periodEnd - periodStart) / 86400000) + 1;
+              const eligibleDays = Math.max(0, Math.round((periodEnd - start) / 86400000) + 1);
+              amount = rate / 12 * Math.min(1, eligibleDays / totalDays);
+            }
+          }
+          if (amount > 0) {
+            window.hrLeaveLedger.push({ id: 'FUT' + date + '_' + emp.code, date: date, code: emp.code,
+              kind: 'accrual', label: 'استحقاق شهري', add: amount, deduct: 0,
+              note: 'استحقاق تلقائي بعد تاريخ استيراد الأرصدة' });
+            made++;
+          } else {
+            window.hrLeaveLedger.push({ id: 'FUT0' + date + '_' + emp.code, date: date, code: emp.code,
+              kind: 'accrual', label: 'تسجيل دورة بدون استحقاق بعد الاستيراد', add: 0, deduct: 0,
+              note: 'حفظ نقطة الدورة لمنع التكرار' });
+          }
+        }
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+    });
+    return made;
+  }
+
+  const originalEnsureAccruals = window.ensureAccruals;
+  if (typeof originalEnsureAccruals === 'function') {
+    window.ensureAccruals = function (asOf) {
+      const allEmployees = emps;
+      let made = 0;
+      try {
+        emps = allEmployees.filter(function (e) { return !e.leaveImportedThrough; });
+        made = originalEnsureAccruals(asOf);
+      } finally {
+        emps = allEmployees;
+      }
+      made += ensureImportedFutureAccruals(asOf);
+      saveExtraModules();
+      return made;
+    };
+  }
+
+  const originalRenderLeaveModule = window.renderLeaveModule;
+  if (typeof originalRenderLeaveModule === 'function') {
+    window.renderLeaveModule = function () {
+      originalRenderLeaveModule();
+      const asOf = document.getElementById('accrualDate').value || '2026-11-08';
+      const codes = new Set();
+      emps.forEach(function (e) { codes.add(normCode(e.code)); });
+      window.hrLeaveLedger.forEach(function (x) { codes.add(normCode(x.code)); });
+      const bal = document.getElementById('leaveBalances');
+      if (bal) {
+        bal.innerHTML = '<b>الأرصدة حتى ' + asOf + '</b><br>';
+        Array.from(codes).filter(Boolean).sort(function (a, b) { return a.localeCompare(b, 'en', { numeric: true }); }).forEach(function (code) {
+          const emp = emps.find(function (e) { return normCode(e.code) === code; });
+          const label = nameForCode(code);
+          const type = typeForCode(code);
+          const typeLabel = type === 'migrant' ? 'مغترب' : type === 'resident' ? 'مقيم' : 'النوع غير محدد';
+          const line = document.createElement('div');
+          line.textContent = code + ' - ' + label + ' (' + typeLabel + '): ' + ledgerBalance(code, asOf).toFixed(2) + ' يوم';
+          bal.appendChild(line);
+        });
+      }
+      const body = document.querySelector('#leaveTable tbody');
+      if (body) {
+        body.innerHTML = '';
+        window.hrLeaveLedger.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }).forEach(function (x) {
+          const tr = document.createElement('tr');
+          const values = [x.date, x.code, nameForCode(x.code), x.label || x.kind,
+            Number(x.add || 0).toFixed(2), Number(x.deduct || 0).toFixed(2),
+            ledgerBalance(x.code, x.date).toFixed(2), x.note || ''];
+          values.forEach(function (v) { const td = document.createElement('td'); td.textContent = v == null ? '' : String(v); tr.appendChild(td); });
+          body.appendChild(tr);
+        });
+      }
+    };
+  }
+
+  window.exportLeaveLedger = function () {
+    const rows = [['التاريخ', 'الكود', 'الاسم', 'الحركة', 'إضافة', 'خصم', 'الرصيد بعد الحركة', 'ملاحظات']];
+    window.hrLeaveLedger.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }).forEach(function (x) {
+      rows.push([x.date, x.code, nameForCode(x.code), x.label || x.kind, x.add || 0, x.deduct || 0,
+        ledgerBalance(x.code, x.date), x.note || '']);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'حركة الإجازات');
+    XLSX.writeFile(wb, 'حركة_أرصدة_الإجازات.xlsx');
+  };
+
+
+  // Full portable JSON backup: includes attendance, shifts, HR master data and private employee documents.
+  function readBlobAsDataURL(blob) {
+    return new Promise(function(resolve,reject){
+      const reader=new FileReader();
+      reader.onload=function(){resolve(String(reader.result||''));};
+      reader.onerror=function(){reject(reader.error||new Error('تعذر قراءة مستند'));};
+      reader.readAsDataURL(blob);
+    });
+  }
+  function dataURLToBlob(dataURL) {
+    const parts=String(dataURL||'').split(',');
+    if(parts.length!==2) throw new Error('بيانات أحد المستندات غير صالحة');
+    const mime=(parts[0].match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
+    const raw=atob(parts[1]),bytes=new Uint8Array(raw.length);
+    for(let i=0;i<raw.length;i++) bytes[i]=raw.charCodeAt(i);
+    return new Blob([bytes],{type:mime});
+  }
+  window.exportFullBackup = async function() {
+    try {
+      const db=await openHrDb();
+      const docs=await new Promise(function(resolve,reject){
+        const tx=db.transaction('documents','readonly'),req=tx.objectStore('documents').getAll();
+        req.onsuccess=function(){resolve(req.result||[]);};
+        req.onerror=function(){reject(req.error||new Error('تعذر قراءة المستندات'));};
+      });
+      const portableDocs=[];
+      for(const doc of docs) {
+        portableDocs.push({
+          id:doc.id,code:doc.code,name:doc.name,type:doc.type,size:doc.size,
+          addedAt:doc.addedAt,dataURL:await readBlobAsDataURL(doc.blob)
+        });
+      }
+      const payload={
+        format:'ahmed-hr-full-backup-v1',
+        createdAt:new Date().toISOString(),
+        depts:depts,emps:emps,attendance:attendance,
+        leaveLedger:window.hrLeaveLedger||[],
+        variableShifts:variableShifts,weeklyRosters:weeklyRosters,
+        employeeMaster:hrMaster,employeeDocuments:portableDocs
+      };
+      const blob=new Blob([JSON.stringify(payload)],{type:'application/json;charset=utf-8'});
+      const url=URL.createObjectURL(blob),a=document.createElement('a');
+      a.href=url;a.download='نسخة_كاملة_نظام_الموارد_البشرية_'+new Date().toISOString().slice(0,10)+'.json';
+      document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},30000);
+      const total=portableDocs.length;
+      const msg=document.getElementById('hrImportMsg');
+      if(msg)msg.textContent='تم تجهيز نسخة JSON كاملة تشمل '+(emps||[]).length+' موظفًا و'+Object.keys(attendance||{}).length+' سجل حضور و'+total+' مستندًا. احتفظ بها في مكان خاص وآمن.';
+    } catch(err) {
+      alert('تعذر إنشاء النسخة الكاملة: '+(err.message||err));
+    }
+  };
+  window.importFullBackup = async function() {
+    const input=document.getElementById('backupFile');
+    const file=input&&input.files&&input.files[0];
+    if(!file){alert('اختر ملف النسخة الاحتياطية JSON');return;}
+    try {
+      const data=JSON.parse(await file.text());
+      if(!data||data.format!=='ahmed-hr-full-backup-v1'||
+        !Array.isArray(data.emps)||!Array.isArray(data.depts)||
+        !data.attendance||typeof data.attendance!=='object'||
+        !Array.isArray(data.leaveLedger)||!Array.isArray(data.employeeDocuments)) {
+        throw new Error('الملف ليس نسخة كاملة حديثة من نظام الموارد البشرية');
+      }
+      if(!confirm('سيتم استبدال بيانات هذا المتصفح بالكامل ببيانات النسخة، بما فيها الحضور والإجازات والورديات وملفات العاملين والمستندات. لن يمكن التراجع إلا بنسخة احتياطية أخرى. هل تريد المتابعة؟'))return;
+      emps=data.emps;depts=data.depts;attendance=data.attendance;
+      window.hrLeaveLedger=data.leaveLedger;
+      variableShifts=Array.isArray(data.variableShifts)?data.variableShifts:[];
+      weeklyRosters=Array.isArray(data.weeklyRosters)?data.weeklyRosters:[];
+      hrMaster=data.employeeMaster&&typeof data.employeeMaster==='object'?data.employeeMaster:{active:[],former:[],formerOld:[],unmatchedLeave:[]};
+      await saveHrMaster();
+      const db=await openHrDb();
+      await new Promise(function(resolve,reject){
+        const tx=db.transaction('documents','readwrite'),store=tx.objectStore('documents');
+        store.clear();
+        (data.employeeDocuments||[]).forEach(function(doc){
+          if(!doc||!doc.id||!doc.code||!doc.dataURL)throw new Error('يوجد مستند غير مكتمل داخل النسخة');
+          store.put({id:doc.id,code:String(doc.code),name:doc.name||'document',type:doc.type||'application/octet-stream',size:Number(doc.size)||0,addedAt:doc.addedAt||new Date().toISOString(),blob:dataURLToBlob(doc.dataURL)});
+        });
+        tx.oncomplete=resolve;
+        tx.onerror=function(){reject(tx.error||new Error('تعذر استعادة المستندات'));};
+        tx.onabort=function(){reject(tx.error||new Error('تم إلغاء استعادة المستندات'));};
+      });
+      saveAll();saveExtraModules();
+      if(typeof renderDepts==='function')renderDepts();
+      if(typeof renderEmps==='function')renderEmps();
+      if(typeof renderDaily==='function')renderDaily();
+      if(typeof renderReportDepts==='function')renderReportDepts();
+      if(typeof renderLeaveModule==='function')renderLeaveModule();
+      if(typeof renderRosterTable==='function')renderRosterTable();
+      if(typeof renderShiftTable==='function')renderShiftTable();
+      renderHRData();
+      const msg=document.getElementById('hrImportMsg');
+      if(msg)msg.textContent='تمت استعادة النسخة الكاملة بنجاح: '+emps.length+' موظفًا و'+Object.keys(attendance).length+' سجل حضور و'+data.employeeDocuments.length+' مستند.';
+      alert('تمت استعادة النسخة الكاملة بنجاح. راجع بيانات الموظفين والحضور والإجازات.');
+    } catch(err) {
+      alert('تعذر استعادة النسخة الكاملة: '+(err.message||err));
+    }
+  };
+
+  addHrTab();
+  loadHrMaster().then(renderHRData);
+  window.renderHRData = renderHRData;
+  window.importHRPackage = importHRPackage;
+  window.importEmployeeWorkbook = importEmployeeWorkbook;
+  window.archiveHRRecord = archiveHRRecord;
+  window.exportHRPackage = exportHRPackage;
+})();
