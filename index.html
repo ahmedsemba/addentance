@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>نظام الحضور v8.1 - راحة اي يوم</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{--primary:#0f6c3f;--danger:#d32f2f;--warn:#ff9800;--blue:#1565c0}
+*{box-sizing:border-box;font-family:'Segoe UI',Tahoma}body{margin:0;background:#f5f5f5}header{background:var(--primary);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap}.container{padding:12px;max-width:1600px;margin:auto}.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}.tab{padding:9px 12px;background:#fff;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px}.tab.active{background:var(--primary);color:#fff}.card{background:#fff;border-radius:10px;padding:14px;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,.07)}input,select{width:100%;padding:7px;border:1px solid #ccc;border-radius:6px;font-size:12px}button{padding:7px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px}.btn-primary{background:var(--primary);color:#fff}.btn-sec{background:#eee}.btn-danger{background:var(--danger);color:#fff}.btn-warn{background:var(--warn);color:#fff}.btn-blue{background:var(--blue);color:#fff}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #e0e0e0;padding:5px;text-align:center}th{background:#f0f0f0;position:sticky;top:0}.flex{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.small{font-size:10px;color:#555}.bulk-bar{background:#e8f5e9;border:2px solid var(--primary);padding:10px;border-radius:8px;margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.summary{background:#fff3e0;border:1px solid #ff9800;padding:10px;border-radius:8px;margin-top:10px}.edit-box{background:#fffde7;border:2px solid #fbc02d;padding:10px;border-radius:8px;margin-bottom:10px}
+
+/* واجهة حديثة ومتجاوبة - تحسين بصري دون تغيير وظائف النظام */
+:root{--primary:#087f70;--primary-dark:#075e57;--ink:#172b3a;--muted:#64748b;--line:#e2e8f0;--surface:#fff;--canvas:#f3f7fa;--blue:#2563eb;--danger:#dc3545;--warn:#d97706}
+*{font-family:Tahoma,'Segoe UI',Arial,sans-serif}
+body{background:var(--canvas);color:var(--ink);line-height:1.55}
+header{background:linear-gradient(115deg,#073b49,#087f70 72%,#159b86);padding:18px clamp(14px,3vw,34px);box-shadow:0 5px 18px #1232}
+header h1{font-size:clamp(18px,2.2vw,26px);margin:0;font-weight:800}
+.container{max-width:1680px;padding:18px clamp(10px,2vw,24px)}
+.tabs{position:sticky;top:0;z-index:20;background:#f3f7faeF;padding:8px 0 12px;backdrop-filter:blur(10px);gap:8px}
+.tab{border:1px solid var(--line);border-radius:10px;background:#fff;color:#334155;padding:10px 15px;font-size:13px;transition:.18s;box-shadow:0 2px 5px #0f172a08}
+.tab:hover{border-color:#7dd3c7;transform:translateY(-1px)}
+.tab.active{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 4px 12px #087f7033}
+.card{border:1px solid var(--line);border-radius:14px;padding:clamp(12px,1.6vw,20px);margin-bottom:16px;box-shadow:0 5px 18px #0f172a0a}
+.card h3{color:#0f4c5c;margin-top:0;font-size:18px}
+input,select{min-height:36px;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;background:#fff;color:var(--ink);font-size:13px}
+input:focus,select:focus{outline:2px solid #99e5d8;border-color:var(--primary)}
+button{border-radius:8px;padding:9px 14px;font-size:12px;transition:filter .15s,transform .15s}
+button:hover{filter:brightness(.96);transform:translateY(-1px)}
+.btn-primary{background:var(--primary)}.btn-primary:hover{background:var(--primary-dark)}
+.btn-sec{background:#e9eff4;color:#334155}.btn-blue{background:var(--blue)}
+table{font-size:12px;background:#fff}
+th{background:#eaf2f5;color:#244454;font-weight:800;z-index:2}
+th,td{border-color:#e5edf1;padding:8px 7px}
+tbody tr:nth-child(even){background:#f8fbfc}
+tbody tr:hover{background:#eef8f6}
+.flex{gap:8px}
+.small{font-size:11px;color:var(--muted)}
+.summary{background:#effaf7;border:1px solid #b8e6db;color:#14564c;border-radius:10px}
+.edit-box{background:#fffaf0;border:1px solid #f2d49a;border-radius:10px}
+.bulk-bar{background:#eaf8f5;border:1px solid #9dd9cc;border-radius:12px}
+@media(max-width:700px){header{gap:8px}.tabs{position:static}.tab{flex:1 1 auto;text-align:center;padding:9px 10px}.card{overflow-x:auto}.flex>*{max-width:100%}table{min-width:720px}}
+
+
+/* HR Pro visual refresh */
+:root{--primary:#126b78;--primary-dark:#0b4d59;--ink:#172b3a;--muted:#718096;--line:#e6edf2;--canvas:#f4f7fa;--accent:#21a38b}
+body{background:var(--canvas);color:var(--ink);font-family:"Segoe UI",Tahoma,Arial,sans-serif}
+header{background:linear-gradient(115deg,#102f46,#126b78 68%,#168b83);min-height:82px;padding:16px 28px;box-shadow:0 8px 24px #17394b20}
+header h1{font-size:23px}
+.container{max-width:1800px;padding:22px;display:grid;grid-template-columns:238px minmax(0,1fr);gap:18px;align-items:start}
+.tabs{grid-column:1;grid-row:1 / span 30;position:sticky;top:16px;display:flex;flex-direction:column;gap:7px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:12px;box-shadow:0 8px 26px #102f4610;min-height:calc(100vh - 125px)}
+.tab{display:flex;align-items:center;width:100%;text-align:right;padding:12px 14px;border:1px solid transparent;border-radius:11px;background:transparent;color:#4a6070;font-size:13px;font-weight:700;box-shadow:none}
+.tab:before{content:"";width:7px;height:7px;border-radius:50%;background:#b8c8d2;margin-left:9px;flex:none}
+.tab:hover{background:#f1f7f8;color:var(--primary);transform:none}
+.tab.active{background:#e8f4f4;color:var(--primary-dark);border-color:#cfe7e5;box-shadow:none}
+.tab.active:before{background:var(--accent);box-shadow:0 0 0 4px #21a38b20}
+.card{grid-column:2;border:1px solid var(--line);border-radius:17px;padding:22px;margin:0 0 16px;box-shadow:0 8px 26px #102f460a;background:#fff;min-width:0}
+.card h3{color:#163f50;font-size:19px;font-weight:800;margin-top:0}
+input,select{min-height:39px;border:1px solid #d6e0e7;border-radius:9px;padding:9px 11px;font-size:13px}
+input:focus,select:focus{outline:3px solid #b9e4df;border-color:#168b83}
+button{border-radius:9px;padding:10px 15px;font-size:12px;font-weight:700}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}
+.btn-sec{background:#edf2f5;color:#405466}
+table{font-size:12px;border-collapse:separate;border-spacing:0;background:#fff}
+th{background:#edf4f6;color:#315365;font-weight:800;z-index:2}
+th,td{border:0;border-bottom:1px solid #e8eef2;padding:10px 8px}
+tbody tr:nth-child(even){background:#fafcfd}tbody tr:hover{background:#eff8f7}
+.summary{background:#edf8f5;border:1px solid #c8e9df;color:#155b50;border-radius:12px;padding:14px}
+.edit-box{background:#fffaf0;border:1px solid #f1dfb9;border-radius:12px;padding:14px}
+.bulk-bar{background:#eef7f7;border:1px solid #d3e9e7;border-radius:12px;padding:12px}
+.small{color:var(--muted)}
+@media(max-width:950px){.container{grid-template-columns:1fr;padding:12px}.tabs{grid-column:1;grid-row:auto;position:static;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.card{grid-column:1}}
+@media(max-width:560px){header{padding:14px}.tabs{grid-template-columns:1fr 1fr}.tab{font-size:11px;padding:10px}.card{padding:13px}}
+
+</style>
+</head>
+<body>
+<header><h1>نظام الموارد البشرية والحضور والانصراف | مصنع العبور</h1><span id="periodLabel" class="small" style="color:#fff"></span></header>
+<div class="container">
+<div class="tabs">
+<div class="tab active" onclick="showTab('daily')">الحضور والتقارير</div>
+<div class="tab" onclick="showTab('emps')">الموظفين - تعديل</div>
+<div class="tab" onclick="showTab('depts')">الإدارات - تعديل</div>
+<div class="tab" onclick="showTab('import')">استيراد</div>
+<div class="tab" onclick="showTab('export')">تصدير</div>
+<div class="tab" onclick="showTab('leave')">الإجازات والأرصدة</div>
+<div class="tab" onclick="showTab('shifts')">الورديات المتغيرة</div>
+</div>
+
+<div id="tab-daily" class="card">
+<div class="flex" style="justify-content:space-between">
+<h3 style="margin:0">إدارة الحضور والتقارير — شاشة موحدة</h3>
+<div class="flex"><input type="date" id="dailyDate" style="width:auto"><input type="search" id="dailySearch" placeholder="بحث بالكود أو الاسم أو الإدارة" style="width:230px" oninput="renderDaily()"><button class="btn-primary" onclick="renderDaily()">عرض</button><button class="btn-warn" onclick="autoCalcAll()">اقتراح</button></div>
+</div>
+<div class="bulk-bar"><strong>جماعي:</strong><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"><label>الكل</label><select id="bulkDept" style="width:120px"><option value="">كل الإدارات</option></select><button class="btn-sec" onclick="filterByDept()">فلتر</button><button class="btn-blue" onclick="bulkAction('rest')">راحة</button><button class="btn-blue" onclick="bulkAction('holiday')">عطلة</button><button class="btn-warn" onclick="bulkAction('clearDelay')">حذف تأخير</button><button class="btn-warn" onclick="bulkAction('clearEarly')">حذف مبكر</button><button class="btn-warn" onclick="bulkAction('clearNoSign')">حذف عدم توقيع</button><button class="btn-danger" onclick="bulkAction('clearAbs')">حذف غياب</button><button class="btn-sec" onclick="clearFilter()">إلغاء فلتر</button><button class="btn-danger" onclick="bulkDeleteDayRecords()">حذف سجلات المحددين لهذا اليوم</button></div>
+<div style="overflow:auto;max-height:70vh"><table id="dailyTable"><thead><tr><th><input type="checkbox" id="headCheck" onchange="toggleAll(this.checked)"></th><th>كود</th><th>اسم</th><th>إدارة</th><th>ميعاد</th><th>الحالة / الحركة</th><th title="وقت الحضور المسجل من ملف البصمة">الحضور الفعلي (البصمة)</th><th title="وقت الانصراف المسجل من ملف البصمة">الانصراف الفعلي (البصمة)</th><th>ساعات العمل</th><th>تأخير</th><th>مبكر</th><th>عدم توقيع</th><th>جزاء (أيام)</th><th>إذن</th><th>إضافي</th><th>اعتماد إضافي العطلة</th><th>غياب</th><th>مأمورية</th><th>الإجازة</th><th>راحة</th><th>عطلة</th></tr></thead><tbody></tbody></table></div>
+<details id="dailyReports" style="margin-top:18px;border:1px solid #d9e5e9;border-radius:12px;padding:12px;background:#f8fbfc"><summary style="cursor:pointer;font-weight:800;color:#126b78;padding:6px">التقارير وملخص الفترات (اضغط لفتحها عند الحاجة)</summary><div style="margin-top:14px"><h3>ملخص الفترة والتقرير التفصيلي</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px"><div><label>من</label><input type="date" id="repFrom"></div><div><label>إلى</label><input type="date" id="repTo"></div><div><label>بحث موظف</label><input id="repEmpSearch" placeholder="كود أو اسم"></div><div><label>كشف موظف للطباعة</label><select id="repPrintEmp"></select></div></div>
+<div id="repDeptChecks" class="flex" style="margin-top:8px"></div>
+<div class="flex" style="margin-top:10px"><button class="btn-primary" onclick="calcReport()">احسب</button><button class="btn-sec" onclick="exportReportExcel()">تصدير إكسيل</button><button class="btn-blue" onclick="printEmployeeStatement()">طباعة كشف موظف</button></div>
+<div id="reportSummary" class="summary" style="display:none"></div>
+<table id="reportTable" style="margin-top:10px"><thead><tr><th>كود</th><th>اسم</th><th>إدارة</th><th>تاريخ</th><th>الحضور الفعلي (البصمة)</th><th>الانصراف الفعلي (البصمة)</th><th>ساعات العمل</th><th>حالة</th><th>تأخير</th><th>مبكر</th><th>عدم توقيع</th><th>جزاء (أيام)</th><th>إذن</th><th>غياب شريحة</th><th>إضافي x1</th><th>x2</th><th>راحة/عطلة</th></tr></thead><tbody></tbody></table></div></details></div>
+
+<div id="tab-emps" class="card" style="display:none">
+<h3>الموظفين - تقدر تغير إدارته وميعاده</h3>
+<div id="empEditBox" class="edit-box" style="display:none">
+<b id="empEditTitle">تعديل موظف</b>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px">
+<div><label>كود</label><input id="empCode" type="text"></div><div><label>اسم</label><input id="empName"></div><div><label>إدارة</label><select id="empDept"></select></div><div><label>ميعاد خاص</label><div class="flex"><input id="empTimeFrom" type="time" style="width:48%"><input id="empTimeTo" type="time" style="width:48%"></div></div><div><label>الراحة الأسبوعية للموظف</label><select id="empOff"><option value="">حسب الإدارة</option><option value="None">بدون راحة ثابتة</option><option value="Saturday">السبت</option><option value="Sunday">الأحد</option><option value="Monday">الإثنين</option><option value="Tuesday">الثلاثاء</option><option value="Wednesday">الأربعاء</option><option value="Thursday">الخميس</option><option value="Friday">الجمعة</option></select></div><div><label>نظام الحضور</label><select id="empAttendanceMode"><option value="fixed">ثابت - حضور وانصراف</option><option value="flexible">مرن - 8 ساعات بدون موعد ثابت</option><option value="exempt">غير ملزم بموعد حضور</option></select></div><div><label>نوع العامل</label><select id="empLeaveType"><option value="migrant">مغترب</option><option value="resident">مقيم</option></select></div><div><label>تاريخ التعيين</label><input id="empHireDate" type="date"></div>
+</div>
+<div class="flex" style="margin-top:8px"><button class="btn-primary" onclick="saveEmpEdit()">حفظ</button><button class="btn-sec" onclick="cancelEmpEdit()">إلغاء</button><span id="empMsg" class="small"></span></div>
+</div>
+<div class="flex" style="margin-bottom:8px"><select id="empFilterDept" style="width:150px"><option value="">كل الإدارات</option></select><select id="empActiveFilter" style="width:140px"><option value="active">العاملون في اليومية</option><option value="all">كل السجلات</option><option value="inactive">المستبعدون</option></select><input id="empSearch" placeholder="بحث كود/اسم" style="width:170px" oninput="renderEmps()"><button class="btn-sec" onclick="renderEmps()">تطبيق الفلتر</button><button class="btn-primary" onclick="startNewEmp()">+ موظف جديد</button></div><div class="bulk-bar"><label><input type="checkbox" id="empSelectVisible" style="width:auto;min-height:0" onchange="document.querySelectorAll('.empRowCheck').forEach(x=>x.checked=this.checked)"> تحديد الظاهر</label><button class="btn-danger" onclick="bulkDeleteEmps('selected')">استبعاد المحدد</button><button class="btn-danger" onclick="bulkDeleteEmps('filtered')">استبعاد نتائج الفلتر</button><button class="btn-danger" onclick="bulkDeleteEmps('all')">استبعاد الكل</button><button class="btn-blue" onclick="exportFilteredEmps()">تصدير النتائج Excel</button></div><div id="empCount" class="small"></div>
+<table id="empTable"><thead><tr><th>تحديد</th><th>كود</th><th>اسم</th><th>إدارة</th><th>ميعاد</th><th>الراحة الأسبوعية</th><th>تعديل</th><th>حذف / استبعاد</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div id="tab-depts" class="card" style="display:none">
+<h3>الإدارات - اختار راحة أي يوم</h3>
+<div id="deptEditBox" class="edit-box" style="display:none">
+<b id="deptEditTitle">تعديل إدارة</b>
+<div class="flex" style="margin-top:8px">
+<input id="deptName" placeholder="اسم الإدارة" style="width:200px">
+<input id="deptFrom" type="time" style="width:100px">
+<input id="deptTo" type="time" style="width:100px">
+<select id="deptOff" style="width:150px">
+<option value="None">بدون راحة</option>
+<option value="Saturday">راحة السبت</option>
+<option value="Sunday">راحة الأحد</option>
+<option value="Monday">راحة الإثنين</option>
+<option value="Tuesday">راحة الثلاثاء</option>
+<option value="Wednesday">راحة الأربعاء</option>
+<option value="Thursday">راحة الخميس</option>
+<option value="Friday">راحة الجمعة</option>
+</select>
+<button class="btn-primary" onclick="saveDeptEdit()">حفظ</button><button class="btn-sec" onclick="cancelDeptEdit()">إلغاء</button>
+</div>
+</div>
+<div class="flex" style="margin-bottom:8px"><button class="btn-primary" onclick="startNewDept()">+ إدارة جديدة</button></div>
+<table id="deptTable"><thead><tr><th>إدارة</th><th>ميعاد</th><th>راحة</th><th>تعديل</th><th>حذف</th></tr></thead><tbody></tbody></table>
+</div><div id="tab-import" class="card" style="display:none">
+<h3>الاستيراد — اختار نوع الملف الصحيح</h3>
+<div class="summary" style="margin-bottom:12px">
+<b>قبل الرفع:</b> خُد نسخة احتياطية أولاً. راجع المعاينة والعدد قبل التأكيد. لا تغيّر أسماء الأعمدة في القوالب، ولا ترفع ملفاً من نوع مختلف.
+<ul>
+<li><b>بيانات الموظفين الثابتة:</b> استخدم قالب «بيانات الموظفين» من القسم الأول، ويشمل الكود والاسم والمصنع والإدارة والوظيفة وتاريخ التعيين ونوع العامل والحالة. لا تضع فيه أي يوم حضور أو غياب أو مواعيد أو راحات.</li>
+<li><b>سجل الحضور والبصمة:</b> ارفع ملف CSV الأصلي الخارج من جهاز ZK من القسم الثاني. يتم ربط السجلات بكود موظف موجود مسبقًا، ولا ينشئ الملف موظفين ولا يغيّر أسماءهم أو مصانعهم أو إداراتهم.</li>
+<li><b>الإجازات وملفات العاملين:</b> الاستيراد الحالي لها من ملف JSON الخاص الذي يتم تصديره من تبويب «ملفات العاملين»، وليس من ملف Excel عادي.</li>
+<li><b>النسخة الاحتياطية:</b> ملف JSON كامل يستبدل بيانات هذا المتصفح عند الاستعادة؛ لا تستخدمه كأنه ملف موظفين أو بصمة.</li>
+</ul>
+</div>
+<div style="border:2px solid var(--primary);padding:12px;border-radius:8px;margin-bottom:12px;background:#e8f5e9">
+<h4>1- بيانات الموظفين الثابتة (منفصلة عن الحضور)</h4>
+<p class="small">هذا القسم مخصص للكود والاسم والمصنع / الفرع والإدارة والوظيفة وتاريخ التعيين ونوع العامل. لا تضع فيه تواريخ الحضور أو الانصراف أو الغياب أو الراحات أو الورديات.</p>
+<div class="flex"><input type="file" id="employeeMasterFile" accept=".xlsx,.xls,.csv"><button class="btn-primary" onclick="importEmployeeMaster()">استيراد / تحديث بيانات الموظفين</button><button class="btn-sec" onclick="downloadTemplate()">تحميل قالب بيانات الموظفين</button><button class="btn-sec" onclick="openEmployeeMasterTab()">عرض قائمة الموظفين</button></div><div id="employeeMasterMsg" class="small" style="margin-top:8px"></div>
+<p class="small">يتم دمج التحديثات حسب كود الموظف، ولا يتم تعديل أو حذف أي سجل حضور قديم. بيانات الحضور اليومية تُرفع من قسم ZK أدناه فقط.</p>
+</div>
+<div style="border:2px solid var(--blue);padding:12px;border-radius:8px;background:#e3f2fd">
+<h4>2- رفع ملف البصمة اليومي ZK</h4>
+<div class="flex"><input type="file" id="zkFile" accept=".csv"><button class="btn-blue" onclick="importZK()">رفع بصمة</button><span id="importMsg" class="small"></span></div>
+</div>
+<div style="border:2px solid #6a1b9a;padding:12px;border-radius:8px;background:#f3e5f5;margin-top:12px">
+<h4>3- النسخ الاحتياطي واستعادة البيانات</h4>
+<div class="flex"><button class="btn-primary" onclick="exportFullBackup()">تنزيل نسخة احتياطية كاملة</button><input type="file" id="backupFile" accept=".json,application/json"><button class="btn-blue" onclick="importFullBackup()">استعادة نسخة احتياطية</button></div>
+<div class="small">النسخة JSON الكاملة تشمل الموظفين والإدارات والحضور والبصمة والإجازات والورديات وملفات العاملين والمستندات المرفوعة. يمكنك نقل الملف يدويًا إلى جهاز آخر ثم اختيار «استعادة نسخة احتياطية». تنبيه: هذا نقل/نسخ احتياطي يدوي وليس مزامنة تلقائية؛ كل جهاز يحتفظ بنسخته حتى نستكمل قاعدة البيانات المركزية. الملف يحتوي بيانات شخصية ومستندات، فاحتفظ به في مكان خاص ولا ترفعه إلى مستودع GitHub عام.</div>
+</div>
+<div id="importPreview" class="small" style="margin-top:10px"></div>
+</div>
+
+
+<div id="tab-leave" class="card" style="display:none">
+<h3>إدارة الإجازات والأرصدة</h3>
+<div class="edit-box">
+<div class="flex">
+<div style="min-width:180px"><label>الموظف</label><select id="leaveEmp"></select></div>
+<div style="min-width:150px"><label>نوع الموظف</label><select id="leaveType"><option value="migrant">مغترب</option><option value="resident">مقيم</option></select></div>
+<div style="min-width:150px"><label>تاريخ التعيين</label><input type="date" id="leaveHire"></div>
+<button class="btn-primary" onclick="saveLeaveProfile()">حفظ بيانات الإجازة</button>
+</div>
+<div class="edit-box" style="border:2px solid #b7791f;margin-top:10px">
+<b>تسجيل تحويل نوع الموظف</b>
+<div class="flex">
+<div><label>تاريخ التحويل</label><input type="date" id="leaveConversionDate"></div>
+<div><label>النوع الجديد</label><select id="leaveConversionTarget"><option value="resident">مقيم</option><option value="migrant">مغترب</option></select></div>
+<button class="btn-primary" onclick="registerLeaveTypeConversion()">تسجيل التحويل وتسوية الرصيد</button>
+</div>
+<div class="small">يُسجل التحويل بتاريخ فعلي، ويُحتفظ بالرصيد والحركات السابقة. التحويل إلى مقيم يمنح استحقاق الفترة المتبقية حتى 25 ديسمبر بنسبة وتناسب. والتحويل إلى مغترب تتم مقارنة الرصيد بالاستحقاق المتوقع حتى نهاية السنة، ويُرحّل الفرق على الاستحقاقات الشهرية بحد أقصى كامل استحقاق كل شهر.</div>
+</div>
+<div class="small">المغترب: 5 أيام يوم 26 من كل شهر، وأول شهر بالتناسب؛ تصبح 6 أيام من يناير إلى سبتمبر بعد إكمال 10 سنوات. المقيم: منحة سنوية يوم 26 ديسمبر (21 يومًا، أو 30 بعد 10 سنوات) بعد 6 أشهر، مع تصفير المتبقي يوم 25 ديسمبر للتسوية المالية.</div>
+</div>
+<div class="bulk-bar">
+<strong>إضافة حركة إجازة:</strong>
+<select id="leaveAction" style="width:150px"><option value="paid">إجازة مدفوعة</option><option value="unpaid">إجازة بدون أجر</option><option value="half_paid">نصف يوم مدفوع</option><option value="half_unpaid">نصف يوم بدون أجر</option><option value="adjust">تسوية رصيد (+/-)</option></select>
+<input type="date" id="leaveDate" style="width:150px">
+<input type="number" id="leaveDays" min="-365" max="365" step="0.5" value="1" style="width:90px">
+<input id="leaveNote" placeholder="ملاحظات" style="width:180px">
+<button class="btn-primary" onclick="addLeaveMovement()">تسجيل الحركة</button>
+</div>
+<div class="edit-box" style="border:2px solid #087f70">
+ <b>استيراد الأرصدة الافتتاحية من Excel / CSV</b>
+ <div class="flex"><button class="btn-sec" onclick="downloadOpeningBalanceTemplate()">تنزيل قالب الأرصدة الافتتاحية</button><input type="file" id="openingBalanceFile" accept=".xlsx,.xls,.csv"><button class="btn-blue" onclick="previewOpeningBalances()">معاينة الملف</button><button class="btn-primary" onclick="applyOpeningBalances()" id="applyOpeningBalancesBtn" disabled>اعتماد الأرصدة</button></div>
+ <div class="small">الأعمدة: كود الموظف، نوع الموظف (مقيم/مغترب)، تاريخ التعيين، تاريخ بداية الرصيد، الرصيد الافتتاحي، ملاحظات. اترك النوع أو تاريخ التعيين فارغًا إذا كانت بياناتهما محفوظة بالفعل. لن يتم استبدال أي رصيد أو حركة موجودة؛ الصفوف المكررة تُستبعد.</div>
+ <div id="openingBalancePreview" class="small"></div>
+</div>
+<div class="edit-box" style="border:2px solid var(--blue)">
+ <b>استيراد حركات الإجازات من Excel / CSV</b>
+ <div class="flex"><button class="btn-sec" onclick="downloadLeaveImportTemplate()">تنزيل قالب حركات الإجازات</button><input type="file" id="leaveImportFile" accept=".xlsx,.xls,.csv"><button class="btn-blue" onclick="previewLeaveImport()">معاينة الملف</button><button class="btn-primary" onclick="applyLeaveImport()" id="applyLeaveImportBtn" disabled>اعتماد الحركات</button></div>
+ <div class="small">الأعمدة المطلوبة: التاريخ، الكود، نوع الحركة (مدفوعة / بدون أجر / تسوية)، عدد الأيام، ملاحظات. التسوية تقبل قيمة موجبة للإضافة أو سالبة للخصم. المعاينة لا تحفظ أي بيانات. الحركات المستوردة تحدّث دفتر الرصيد فقط ولا تغيّر سجل الحضور اليومي.</div>
+ <div id="leaveImportPreview" class="small"></div>
+</div>
+<div class="flex"><label>تاريخ احتساب الاستحقاق حتى</label><input type="date" id="accrualDate" style="width:160px"><button class="btn-blue" onclick="runLeaveAccrual()">احتساب الاستحقاقات حتى التاريخ</button><button class="btn-sec" onclick="exportLeaveLedger()">تصدير حركة الإجازات</button><label class="small">سنة التسوية</label><input type="number" id="settlementYear" min="2000" max="2100" style="width:85px" value="2026"><button class="btn-warn" onclick="exportResidentSettlement()">تصدير رصيد المقيمين للتسوية</button></div>
+<div id="leaveBalances" class="summary"></div>
+<div style="overflow:auto;max-height:55vh"><table id="leaveTable"><thead><tr><th>التاريخ</th><th>الكود</th><th>الاسم</th><th>الحركة</th><th>إضافة</th><th>خصم</th><th>الرصيد بعد الحركة</th><th>ملاحظات</th></tr></thead><tbody></tbody></table></div>
+</div>
+<div id="tab-shifts" class="card" style="display:none">
+<h3>تخطيط الورديات الأسبوعية</h3><div class="edit-box"><div class="small">لكل موظف جدول مستقل ويمكن تغيير ورديته أسبوعيًا. للوردية الخاصة في يوم معين، مثل الجمعة 12 ساعة أو الوردية الليلية حتى صباح اليوم التالي، سجّلها من «الورديات المتغيرة».</div><label>الموظف</label><select id="rosterEmp"></select><label>بداية الأسبوع</label><input type="date" id="rosterStart"><label>الوردية</label><select id="rosterShift"><option value="07:00|15:00">7 ص - 3 م</option><option value="15:00|23:00">3 م - 11 م</option><option value="23:00|07:00">11 م - 7 ص</option></select><label>راحة الموظف</label><select id="rosterOff"><option value="Friday">الجمعة</option><option value="Saturday">السبت</option><option value="Sunday">الأحد</option><option value="Monday">الإثنين</option><option value="Tuesday">الثلاثاء</option><option value="Wednesday">الأربعاء</option><option value="Thursday">الخميس</option><option value="None">بدون</option></select><button class="btn-primary" onclick="saveWeeklyRoster()">حفظ جدول الأسبوع</button></div><div style="overflow:auto"><table id="rosterTable"><thead><tr><th>بداية الأسبوع</th><th>نهايته</th><th>الموظف</th><th>الوردية</th><th>الراحة</th><th>حذف</th></tr></thead><tbody></tbody></table></div>
+<div class="edit-box"><b>استيراد ورديات مصنع الأكسجين من Excel</b><div class="flex"><input type="file" id="oxygenShiftFile" accept=".xlsx,.xls,.csv"><button class="btn-primary" onclick="importOxygenShifts()">استيراد الورديات</button><button class="btn-sec" onclick="downloadOxygenTemplate()">تنزيل قالب الاستيراد</button></div><div class="small">القالب: كود الموظف، التاريخ بصيغة YYYY-MM-DD، بداية الوردية HH:MM، نهاية الوردية HH:MM، إضافي، معامل، ملاحظات.</div></div>
+<div class="edit-box"><div class="flex">
+<div style="min-width:190px"><label>الموظف</label><select id="shiftEmp"></select></div>
+<div><label>بداية الوردية</label><input type="datetime-local" id="shiftStart"></div>
+<div><label>نهاية الوردية</label><input type="datetime-local" id="shiftEnd"></div>
+<div><label>ساعات إضافي</label><input type="number" id="shiftExtra" min="0" step="0.5" value="0" style="width:90px"></div>
+<div><label>معامل الإضافي</label><select id="shiftFactor" style="width:80px"><option value="1">x1</option><option value="2">x2</option></select></div>
+<div><label>موقع/ملاحظة</label><input id="shiftNote" placeholder="اختياري"></div>
+<button class="btn-primary" onclick="addVariableShift()">حفظ الوردية</button>
+</div><div class="small">يُنسب يوم العمل إلى تاريخ بداية الوردية؛ لذلك وردية 11 مساءً إلى 7 صباحًا تُسجل على يوم بدايتها.</div></div>
+<div class="flex"><button class="btn-sec" onclick="exportVariableShifts()">تصدير الورديات Excel</button><button class="btn-blue" onclick="exportOxygenEmployeeSheets()">تصدير كشف مستقل لكل موظف</button></div>
+<div style="overflow:auto;max-height:55vh"><table id="shiftTable"><thead><tr><th>بداية الوردية</th><th>نهاية الوردية</th><th>الكود</th><th>الاسم</th><th>الساعات</th><th>إضافي</th><th>المعامل</th><th>ملاحظات</th><th>حذف</th></tr></thead><tbody></tbody></table></div>
+</div>
+<div id="tab-export" class="card" style="display:none"><h3>تصدير البيانات</h3>
+<div class="edit-box"><b>تصدير الحضور والبصمة المعتمدة</b><div class="flex"><label>من</label><input type="date" id="expFrom" style="width:150px"><label>إلى</label><input type="date" id="expTo" style="width:150px"><button class="btn-primary" onclick="exportExcel()">تصدير Excel</button></div><div class="small">يصدر كشف الحضور للفترة المحددة.</div></div>
+<div class="edit-box"><b>تصدير قائمة الموظفين والإدارات</b><div class="flex"><button class="btn-blue" onclick="exportEmployeesList()">تنزيل Excel الموظفين</button></div><div class="small">يشمل الكود والاسم والإدارة والموعد والراحة وتاريخ التعيين ونوع الإجازة المسجل.</div></div>
+<div class="edit-box"><b>تصدير الإجازات</b><div class="flex"><button class="btn-blue" onclick="exportLeaveLedger()">تنزيل حركة الإجازات Excel</button></div><div class="small">هذا تقرير للمراجعة، وليس ملف استيراد مباشر.</div></div>
+<div class="edit-box"><b>نسخة احتياطية كاملة</b><div class="flex"><button class="btn-primary" onclick="exportFullBackup()">تنزيل نسخة JSON كاملة</button></div><div class="small">تحتوي الموظفين والإدارات والحضور والإجازات والورديات. احتفظ بها في مكان آمن.</div></div>
+</div>
+</div>
+<script>
+/* FRESH_START_RESET_2026_11: clear previous local attendance data once */
+(function(){
+ const resetKey='att_fresh_start_reset_2026_11';
+ if(localStorage.getItem(resetKey)==='done') return;
+ [
+  'att_depts_v81','att_depts_v8','att_emps_v81','att_emps_v8',
+  'att_data_v81','att_data_v8','att_variable_shifts_v1',
+  'att_weekly_rosters_v1','att_leave_ledger_v1'
+ ].forEach(k=>localStorage.removeItem(k));
+ localStorage.setItem(resetKey,'done');
+})();
+let depts=JSON.parse(localStorage.getItem('att_depts_v81')||localStorage.getItem('att_depts_v8')||'[]');
+let emps=JSON.parse(localStorage.getItem('att_emps_v81')||localStorage.getItem('att_emps_v8')||'[]');
+let attendance=JSON.parse(localStorage.getItem('att_data_v81')||localStorage.getItem('att_data_v8')||'{}');
+var variableShifts=JSON.parse(localStorage.getItem('att_variable_shifts_v1')||'[]');
+if(!Array.isArray(variableShifts))variableShifts=[];
+var weeklyRosters=JSON.parse(localStorage.getItem('att_weekly_rosters_v1')||'[]');
+if(!Array.isArray(weeklyRosters))weeklyRosters=[];
+if(depts.length==0){depts=[{id:'sec1',name:'الامن صباحي 7-3',from:'07:00',to:'15:00',off:'None'},{id:'sec2',name:'الامن مسائي 3-11',from:'15:00',to:'23:00',off:'None'},{id:'sec3',name:'الامن ليلي 11-7',from:'23:00',to:'07:00',off:'None'},{id:'tanks',name:'التنكات',from:'08:00',to:'16:00',off:'Friday'},{id:'acc',name:'الحسابات',from:'09:00',to:'17:00',off:'Friday'}];}
+function saveAll(){localStorage.setItem('att_depts_v81',JSON.stringify(depts));localStorage.setItem('att_emps_v81',JSON.stringify(emps));localStorage.setItem('att_data_v81',JSON.stringify(attendance));}
+function showTab(t){document.querySelectorAll('.card').forEach(c=>c.style.display='none');document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.getElementById('tab-'+t).style.display='block';event.target.classList.add('active');if(t=='emps')renderEmps();if(t=='depts')renderDepts();if(t=='daily'){renderDaily();renderReportDepts();}if(t=='report')renderReportDepts();if(t=='leave')renderLeaveModule();if(t=='shifts'){renderRosterTable();renderShiftTable();}}
+function getDayName(iso){const d=new Date(iso+'T12:00:00');return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];}
+function getSch(emp,iso){
+ const dept=depts.find(x=>x.id==emp.dept)||{from:'09:00',to:'17:00',off:'Friday'};
+ let base={from:emp.from||dept.from,to:emp.to||dept.to,off:emp.off!==undefined&&emp.off!==''?emp.off:(dept.off||'Friday')};
+ if(iso&&Array.isArray(weeklyRosters)){const r=weeklyRosters.find(x=>x.code==emp.code&&iso>=x.start&&iso<=x.end);if(r)base={from:r.from,to:r.to,off:r.off,off2:r.off2||''};}
+ if(iso&&Array.isArray(variableShifts)){const v=variableShifts.find(x=>x.code==emp.code&&x.start&&x.start.slice(0,10)==iso);if(v)base={...base,from:v.start.slice(11,16),to:v.end.slice(11,16)};}
+ return base;
+}
+function isDeptRestDay(iso,sch){if(!sch)return false;const day=getDayName(iso);return (sch.off&&sch.off!=='None'&&day===sch.off)||(sch.off2&&day===sch.off2);}
+let editingEmpCode=null;
+function startNewEmp(){editingEmpCode=null;empCode.value='';empName.value='';empTimeFrom.value='';empTimeTo.value='';empOff.value='';document.getElementById('empAttendanceMode').value='fixed';document.getElementById('empLeaveType').value='migrant';document.getElementById('empHireDate').value='';document.getElementById('empEditBox').style.display='block';}
+function editEmp(code){const emp=emps.find(e=>e.code==code);if(!emp)return;editingEmpCode=code;empCode.value=emp.code;empName.value=emp.name;empDept.value=emp.dept;empTimeFrom.value=emp.from||'';empTimeTo.value=emp.to||'';empOff.value=emp.off===undefined?'':emp.off;document.getElementById('empAttendanceMode').value=emp.attendanceMode||'fixed';document.getElementById('empLeaveType').value=emp.leaveType||'migrant';document.getElementById('empHireDate').value=emp.hireDate||'';document.getElementById('empEditBox').style.display='block';}
+function cancelEmpEdit(){document.getElementById('empEditBox').style.display='none';editingEmpCode=null;}
+function saveEmpEdit(){
+ const c=empCode.value.trim(),nm=empName.value.trim(),dp=empDept.value,tf=empTimeFrom.value,tt=empTimeTo.value,off=empOff.value,attendanceMode=document.getElementById('empAttendanceMode').value;
+ if(!c||!nm)return alert('كود واسم');
+ const old=editingEmpCode?emps.find(e=>e.code==editingEmpCode):null;
+ if(emps.some(e=>e.code==c&&e.code!=editingEmpCode))return alert('الكود موجود بالفعل لموظف آخر');
+ if(old&&document.getElementById('empLeaveType').value!==(old.leaveType||'migrant'))return alert('لا تغيّر نوع الموظف من شاشة بيانات الموظفين؛ استخدم تسجيل تحويل نوع الموظف في تبويب الإجازات حتى لا تضيع التسوية التاريخية.');
+ if(old&&Array.isArray(old.leaveTransitions)&&old.leaveTransitions.length&&document.getElementById('empHireDate').value!==(old.hireDate||''))return alert('لا يمكن تعديل تاريخ التعيين بعد تسجيل تحويلات؛ للحفاظ على التسلسل التاريخي تواصل مع مدير النظام.');
+ const obj={...(old||{}),code:c,name:nm,dept:dp,from:tf,to:tt,off,attendanceMode,leaveType:document.getElementById('empLeaveType').value,hireDate:document.getElementById('empHireDate').value};
+ if(editingEmpCode){
+  const idx=emps.findIndex(e=>e.code==editingEmpCode);
+  if(idx<0)return alert('الموظف غير موجود؛ أعد تحميل القائمة وحاول مرة أخرى');
+  emps[idx]=obj;
+  if(c!=editingEmpCode){
+   const oldSuffix='_'+editingEmpCode,newSuffix='_'+c,moves=[];
+   for(const k of Object.keys(attendance)){if(k.endsWith(oldSuffix))moves.push([k,k.slice(0,-oldSuffix.length)+newSuffix,attendance[k]]);}
+   moves.forEach(([from,to,value])=>{attendance[to]={...value,...(attendance[to]||{})};delete attendance[from];});
+   leaveLedger.forEach(x=>{if(x.code==editingEmpCode)x.code=c;});
+   variableShifts.forEach(x=>{if(x.code==editingEmpCode)x.code=c;});
+   weeklyRosters.forEach(x=>{if(x.code==editingEmpCode)x.code=c;});
+   saveExtraModules();
+  }
+ }else{emps.push(obj);}
+ saveAll();renderEmps();renderRosterTable();renderShiftTable();renderLeaveModule();cancelEmpEdit();
+}
+
+function delEmp(code){if(!confirm('استبعاد الموظف من قائمة الحضور اليومية؟ ستظل سجلات حضوره وإجازاته السابقة محفوظة.'))return;const e=emps.find(x=>String(x.code)===String(code));if(e)e.active=false;saveAll();renderEmps();renderDaily();}
+function getVisibleEmpRows(){const filterDept=document.getElementById('empFilterDept').value,search=(document.getElementById('empSearch').value||'').toLowerCase(),status=document.getElementById('empActiveFilter')?.value||'active';return emps.filter(e=>{if(filterDept&&e.dept!=filterDept)return false;if(status==='active'&&e.active===false)return false;if(status==='inactive'&&e.active!==false)return false;if(search&&!String(e.code).toLowerCase().includes(search)&&!String(e.name||'').toLowerCase().includes(search))return false;return true;});}
+function bulkDeleteEmps(mode){const list=getVisibleEmpRows(),selected=Array.from(document.querySelectorAll('.empRowCheck:checked')).map(x=>x.dataset.code),codes=mode==='selected'?selected:mode==='filtered'?list.map(x=>String(x.code)):emps.map(x=>String(x.code));if(!codes.length)return alert('لا توجد سجلات محددة');const msg=mode==='all'?'سيتم استبعاد جميع العاملين من قائمة الحضور اليومية.':'سيتم استبعاد '+codes.length+' موظف من قائمة الحضور اليومية.';if(!confirm(msg+' لن تُحذف سجلات الحضور والإجازات التاريخية. هل تتابع؟'))return;const set=new Set(codes);emps.forEach(e=>{if(set.has(String(e.code)))e.active=false;});saveAll();renderEmps();renderDaily();}
+function exportFilteredEmps(){if(!window.XLSX)return alert('مكتبة Excel لم تُحمّل');const rows=[['الكود','الاسم','الإدارة','ميعاد بداية','ميعاد نهاية','الراحة الأسبوعية','تاريخ التعيين','نوع الإجازة','نظام الحضور','الحالة']];getVisibleEmpRows().forEach(e=>{const d=depts.find(x=>x.id==e.dept)||{};rows.push([e.code,e.name||'',d.name||e.dept||'',e.from||d.from||'',e.to||d.to||'',e.off||d.off||'',e.hireDate||'',e.leaveType||'',e.attendanceMode==='flexible'?'مرن':e.attendanceMode==='exempt'?'غير ملزم':'ثابت',e.active===false?'مستبعد':'نشط']);});const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'الموظفون');XLSX.writeFile(wb,'الموظفون_حسب_الفلتر.xlsx');}
+function renderEmps(){const tb=document.querySelector('#empTable tbody');if(!tb)return;tb.innerHTML='';const list=getVisibleEmpRows();list.forEach(e=>{const d=depts.find(x=>x.id==e.dept),dname=d?d.name:(e.dept||''),timeTxt=e.from?e.from+'-'+e.to:d?d.from+'-'+d.to:'-',offTxt={'':'حسب الإدارة','None':'بدون','Saturday':'السبت','Sunday':'الأحد','Monday':'الإثنين','Tuesday':'الثلاثاء','Wednesday':'الأربعاء','Thursday':'الخميس','Friday':'الجمعة'},offVal=e.off===undefined?'':e.off;const code=String(e.code).replace(/'/g,"\\'");tb.innerHTML+='<tr><td><input type="checkbox" class="empRowCheck" data-code="'+String(e.code).replace(/"/g,'&quot;')+'" style="width:auto;min-height:0"></td><td>'+e.code+'</td><td>'+e.name+'</td><td>'+dname+'</td><td>'+timeTxt+'</td><td>'+(offTxt[offVal]||offVal)+'</td><td><button class="btn-blue" onclick="editEmp(\''+code+'\')">تعديل</button></td><td><button class="btn-danger" onclick="delEmp(\''+code+'\')">استبعاد</button></td></tr>';});document.getElementById('empCount').textContent='عدد النتائج: '+list.length+' من إجمالي '+emps.length+' سجل';const sel=document.getElementById('empDept'),bulkSel=document.getElementById('bulkDept'),filterSel=document.getElementById('empFilterDept'),cur=sel.value,curB=bulkSel.value,curF=filterSel.value;sel.innerHTML='';bulkSel.innerHTML='<option value="">كل الإدارات</option>';filterSel.innerHTML='<option value="">كل الإدارات</option>';depts.forEach(d=>{const op=document.createElement('option');op.value=d.id;op.textContent=d.name;sel.appendChild(op);bulkSel.appendChild(op.cloneNode(true));filterSel.appendChild(op.cloneNode(true));});if(cur)sel.value=cur;if(curB)bulkSel.value=curB;if(curF)filterSel.value=curF;const all=document.getElementById('empSelectVisible');if(all)all.checked=false;}
+
+let editingDeptId=null;
+function startNewDept(){editingDeptId=null;deptName.value='';deptFrom.value='';deptTo.value='';deptOff.value='Friday';document.getElementById('deptEditBox').style.display='block';}
+function editDept(id){const d=depts.find(x=>x.id==id);if(!d)return;editingDeptId=id;deptName.value=d.name;deptFrom.value=d.from;deptTo.value=d.to;deptOff.value=d.off;document.getElementById('deptEditBox').style.display='block';}
+function cancelDeptEdit(){document.getElementById('deptEditBox').style.display='none';editingDeptId=null;}
+function saveDeptEdit(){const n=deptName.value.trim(),f=deptFrom.value,t=deptTo.value,o=deptOff.value;if(!n||!f||!t)return alert('كمل');if(editingDeptId){const idx=depts.findIndex(x=>x.id==editingDeptId);if(idx>=0)depts[idx]={id:editingDeptId,name:n,from:f,to:t,off:o};}else{depts.push({id:'d'+Date.now(),name:n,from:f,to:t,off:o});}saveAll();renderDepts();cancelDeptEdit();renderEmps();}
+function delDept(id){if(confirm('حذف؟')){depts=depts.filter(d=>d.id!=id);saveAll();renderDepts();}}
+function renderDepts(){const tb=document.querySelector('#deptTable tbody');tb.innerHTML='';const map={'None':'بدون','Saturday':'السبت','Sunday':'الأحد','Monday':'الإثنين','Tuesday':'الثلاثاء','Wednesday':'الأربعاء','Thursday':'الخميس','Friday':'الجمعة'};depts.forEach(d=>{tb.innerHTML+=`<tr><td>${d.name}</td><td>${d.from}-${d.to}</td><td>${map[d.off]||d.off}</td><td><button class="btn-blue" onclick="editDept('${d.id}')">تعديل</button></td><td><button class="btn-danger" onclick="delDept('${d.id}')">حذف</button></td></tr>`;});renderEmps();}
+function parseM(t){if(!t)return null;const [h,m]=t.split(':').map(Number);return h*60+m;}
+function calcAutoAbsent(rec){if(!rec.in1&&!rec.out1&&!rec.mission&&!rec.rest&&!rec.holiday&&!rec.permHours&&!rec.leaveStatus)return true;return false;}
+function calcNoSign(rec){if((rec.in1&&!rec.out1)||(!rec.in1&&rec.out1))return true;return false;}
+let currentFilteredCodes=null;
+function renderDaily(){const date=dailyDate.value||new Date().toISOString().slice(0,10);dailyDate.value=date;const tb=document.querySelector('#dailyTable tbody');tb.innerHTML='';let list=emps.filter(e=>e.active!==false);if(currentFilteredCodes)list=list.filter(e=>currentFilteredCodes.includes(e.code));const q=(document.getElementById('dailySearch')?.value||'').trim().toLowerCase();if(q)list=list.filter(e=>String(e.code).toLowerCase().includes(q)||String(e.name||'').toLowerCase().includes(q)||String((depts.find(d=>d.id==e.dept)||{}).name||e.dept||'').toLowerCase().includes(q));list.forEach(emp=>{const key=`${date}_${emp.code}`;let rec=attendance[key]||{in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};const sch=getSch(emp,date),attendanceMode=emp.attendanceMode||'fixed',fixedAttendance=attendanceMode==='fixed';if(fixedAttendance&&isDeptRestDay(date,sch)){if(!rec.restManual){rec.rest=true;rec.restAuto=true;}rec.absent=false;}else if(rec.restAuto&&!rec.restManual){rec.rest=false;rec.restAuto=false;}if(fixedAttendance&&(!emp.hireDate||date>=emp.hireDate)&&date<=(()=>{const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');})()&&calcAutoAbsent(rec)&&!rec.rest&&!rec.absent_manual)rec.absent=true;if(attendanceMode!=='exempt'&&calcNoSign(rec)&&!rec.rest&&!rec.holiday&&!rec.mission)rec.noSign='نص يوم';attendance[key]=rec;const dname=(depts.find(d=>d.id==emp.dept)||{}).name||emp.dept||'';const tr=document.createElement('tr');tr.innerHTML=`<td><input type="checkbox" class="rowCheck" data-code="${emp.code}"></td><td>${emp.code}</td><td>${emp.name}</td><td>${dname}</td><td>${attendanceMode==='exempt'?'غير ملزم':attendanceMode==='flexible'?'مرن - 8 ساعات':sch.from+'-'+sch.to+' ('+sch.off+')'}</td><td>${dailyStatusOptions(rec,sch,date,emp.code)}</td><td><input type="time" value="${rec.in1}" onchange="upd('${date}','${emp.code}','in1',this.value)"></td><td><input type="time" value="${rec.out1}" onchange="upd('${date}','${emp.code}','out1',this.value)"></td><td><input type="number" min="0" step="0.25" value="${rec.workHours||''}" style="width:48px" onchange="upd('${date}','${emp.code}','workHours',this.value)"></td><td><input type="text" value="${rec.delay}" style="width:40px" onchange="upd('${date}','${emp.code}','delay',this.value)"><button class="btn-sec" onclick="upd('${date}','${emp.code}','delay','')">حذف</button></td><td><input type="text" value="${rec.early}" style="width:40px" onchange="upd('${date}','${emp.code}','early',this.value)"><button class="btn-sec" onclick="upd('${date}','${emp.code}','early','')">حذف</button></td><td><input type="text" value="${rec.noSign}" style="width:40px" onchange="upd('${date}','${emp.code}','noSign',this.value)"><button class="btn-sec" onclick="upd('${date}','${emp.code}','noSign','')">حذف</button></td><td><select style="width:58px" onchange="upd('${date}','${emp.code}','penaltyDays',this.value)"><option value="">-</option><option value="0.5" ${rec.penaltyDays==0.5?'selected':''}>0.5</option><option value="1" ${rec.penaltyDays==1?'selected':''}>1</option><option value="2" ${rec.penaltyDays==2?'selected':''}>2</option><option value="3" ${rec.penaltyDays==3?'selected':''}>3</option><option value="4" ${rec.penaltyDays==4?'selected':''}>4</option><option value="5" ${rec.penaltyDays==5?'selected':''}>5</option><option value="6" ${rec.penaltyDays==6?'selected':''}>6</option><option value="7" ${rec.penaltyDays==7?'selected':''}>7</option></select></td><td><div class="flex"><select style="width:45px" onchange="upd('${date}','${emp.code}','permHours',this.value)"><option value="">-</option><option value="1" ${rec.permHours=='1'?'selected':''}>1س</option><option value="2" ${rec.permHours=='2'?'selected':''}>2س</option><option value="3" ${rec.permHours=='3'?'selected':''}>3س</option><option value="4" ${rec.permHours=='4'?'selected':''}>4س</option></select><select style="width:50px" onchange="upd('${date}','${emp.code}','permType',this.value)"><option value="free" ${rec.permType=='free'?'selected':''}>مجاني</option><option value="deduct" ${rec.permType=='deduct'?'selected':''}>خصم</option></select></div></td><td><div class="flex"><input type="number" step="0.5" value="${rec.extra}" style="width:40px" onchange="upd('${date}','${emp.code}','extra',this.value)"><select style="width:35px" onchange="upd('${date}','${emp.code}','extraFactor',this.value)"><option value="1" ${rec.extraFactor==1?'selected':''}>x1</option><option value="2" ${rec.extraFactor==2?'selected':''}>x2</option></select></div></td><td><div class="flex"><label style="font-size:11px"><input type="checkbox" style="width:auto;min-height:0" ${rec.holidayExtraApproved?'checked':''} onchange="upd('${date}','${emp.code}','holidayExtraApproved',this.checked)"> ورقة معتمدة</label><input type="text" placeholder="اسم المدير" value="${rec.holidayExtraManager||''}" style="width:75px" onchange="upd('${date}','${emp.code}','holidayExtraManager',this.value)"></div></td><td><input type="checkbox" ${rec.absent?'checked':''} onchange="upd('${date}','${emp.code}','absent',this.checked,true)"></td><td><div class="flex"><input type="checkbox" ${rec.mission?'checked':''} onchange="upd('${date}','${emp.code}','mission',this.checked)"><input type="text" value="${rec.missionPlace||''}" placeholder="المكان" style="width:75px" onchange="upd('${date}','${emp.code}','missionPlace',this.value)"></div></td><td>${rec.leaveStatus?({'paid':'مدفوعة','unpaid':'بدون أجر','half_paid':'نصف مدفوعة','half_unpaid':'نصف بدون أجر'}[rec.leaveStatus]||'إجازة')+' ('+(rec.leaveFraction||1)+' يوم)':''}</td><td><input type="checkbox" ${rec.rest?'checked':''} onchange="upd('${date}','${emp.code}','rest',this.checked)"></td><td><input type="checkbox" ${rec.holiday?'checked':''} onchange="upd('${date}','${emp.code}','holiday',this.checked)"></td>`;tb.appendChild(tr);});saveAll();}
+
+function dailyStatusOptions(rec,sch,date,code){
+ let value=rec.leaveStatus|| (rec.absent?'absent':rec.mission?'mission':(rec.rest||isDeptRestDay(date,sch))?'rest':rec.holiday?'holiday':(rec.in1||rec.out1)?'present':'');
+ const opts=[['','—'],['present','حضور'],['absent','غياب'],['mission','مأمورية'],['paid','إجازة مدفوعة'],['unpaid','إجازة بدون أجر'],['half_paid','نصف يوم مدفوع'],['half_unpaid','نصف يوم بدون أجر'],['rest','راحة'],['holiday','عطلة رسمية']];
+ return '<select style="min-width:125px" onchange="setDailyStatus(\''+date+'\',\''+String(code).replace(/'/g,"\\'")+'\',this.value)">'+opts.map(([v,label])=>'<option value="'+v+'" '+(value===v?'selected':'')+'>'+label+'</option>').join('')+'</select>';
+}
+function setDailyStatus(date,code,value){
+ const key=date+'_'+code;
+ if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};
+ const r=attendance[key];
+ r.absent=false;r.absent_manual=false;r.mission=false;r.rest=false;r.restManual=false;r.restAuto=false;r.holiday=false;r.leaveStatus='';r.leaveFraction=1;
+ if(value==='absent'){r.absent=true;r.absent_manual=true;}
+ else if(value==='mission'){r.mission=true;}
+ else if(value==='paid'||value==='unpaid'||value==='half_paid'||value==='half_unpaid'){r.leaveStatus=value;r.leaveFraction=(value==='half_paid'||value==='half_unpaid')?0.5:1;}
+ else if(value==='rest'){r.rest=true;r.restManual=true;}
+ else if(value==='holiday'){r.holiday=true;}
+ saveAll();renderDaily();
+}
+
+function upd(date,code,field,val,isManual){const key=`${date}_${code}`;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};if(field=='rest'){attendance[key].rest=!!val;attendance[key].restManual=!!val;attendance[key].restAuto=false;}else if(field=='in1'||field=='out1'){attendance[key][field]=val;if(val){attendance[key].absent=false;attendance[key].absent_manual=false;}}else if(field=='permHours'){attendance[key].permHours=val;if(val)attendance[key].permType=freePermissionCount(code,date,key)<2?'free':'deduct';}else if(field=='permType'){if(val=='free'&&attendance[key].permHours&&freePermissionCount(code,date,key)>=2){attendance[key].permType='deduct';alert('تم استنفاد الإذنين المجانيين في دورة المرتب الحالية (26 إلى 25)، وتم تسجيل الإذن بخصم.');}else attendance[key].permType=val;}else attendance[key][field]=val;if((field==='in1'||field==='out1')&&(emps.find(e=>String(e.code)===String(code))||{}).attendanceMode==='flexible'){const r=attendance[key];if(r.in1&&r.out1){let a=parseM(r.in1),b=parseM(r.out1);if(b<=a)b+=1440;r.workHours=Number(((b-a)/60).toFixed(2));}}if(isManual)attendance[key].absent_manual=true;saveAll();if(['in1','out1','mission','rest','holiday','permHours','permType','leaveStatus'].includes(field))renderDaily();}
+function toggleAll(checked){document.querySelectorAll('#dailyTable tbody tr').forEach(tr=>{if(tr.style.display!=='none'){const c=tr.querySelector('.rowCheck');if(c)c.checked=checked;}});document.getElementById('selectAll').checked=checked;document.getElementById('headCheck').checked=checked;}
+function getSelectedCodes(){return Array.from(document.querySelectorAll('.rowCheck:checked')).map(c=>c.dataset.code);}
+function bulkAction(type){const date=dailyDate.value;const codes=getSelectedCodes();if(codes.length==0)return alert('حدد');if(!confirm(`${type} على ${codes.length}؟`))return;codes.forEach(code=>{const key=`${date}_${code}`;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};if(type=='rest'){attendance[key].rest=true;attendance[key].restManual=true;attendance[key].restAuto=false;attendance[key].holiday=false;attendance[key].absent=false;}if(type=='holiday'){attendance[key].holiday=true;attendance[key].rest=false;attendance[key].absent=false;}if(type=='clearDelay')attendance[key].delay='';if(type=='clearEarly')attendance[key].early='';if(type=='clearNoSign')attendance[key].noSign='';if(type=='clearAbs'){attendance[key].absent=false;attendance[key].absent_manual=true;}});saveAll();renderDaily();}
+function filterByDept(){const id=bulkDept.value;if(!id){currentFilteredCodes=null;renderDaily();return;}currentFilteredCodes=emps.filter(e=>e.dept==id).map(e=>e.code);renderDaily();}
+function clearFilter(){currentFilteredCodes=null;renderDaily();}
+function bulkDeleteDayRecords(){const date=dailyDate.value,codes=getSelectedCodes();if(!date||!codes.length)return alert('حدد الموظفين أولاً');if(!confirm('سيتم حذف سجل الحضور والحركات المسجلة لهؤلاء الموظفين في تاريخ '+date+' فقط. سجلات الأيام الأخرى لن تتأثر. هل تريد المتابعة؟'))return;codes.forEach(code=>delete attendance[date+'_'+code]);saveAll();renderDaily();alert('تم حذف سجلات اليوم المحدد فقط.');}
+ function autoCalcAll(){const date=dailyDate.value;emps.forEach(emp=>{const key=`${date}_${emp.code}`;let rec=attendance[key];if(!rec)return;const sch=getSch(emp,date);if((emp.attendanceMode||'fixed')==='fixed'&&rec.in1&&rec.out1){let inM=parseM(rec.in1),outM=parseM(rec.out1),sF=parseM(sch.from),sT=parseM(sch.to);let isNight=sT<=sF;if(isNight&&outM<inM)outM+=1440;if(!rec.rest&&!rec.holiday){if(inM>sF+15)rec.delay='نص يوم';let sTAdj=isNight?sT+1440:sT;if(outM < sTAdj-30)rec.early='مبكر';}} if((emp.attendanceMode||'fixed')!=='exempt'&&calcNoSign(rec))rec.noSign='نص يوم'; if((emp.attendanceMode||'fixed')==='fixed'&&(!emp.hireDate||date>=emp.hireDate)&&date<=(()=>{const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');})()&&calcAutoAbsent(rec)&&!rec.rest&&!rec.absent_manual)rec.absent=true;});saveAll();renderDaily();}
+function importEmpsWithDepts(){const file=document.getElementById('empFile').files[0];if(!file)return alert('اختر ملف');const reader=new FileReader();reader.onload=function(e){try{let rows=[];if(file.name.endsWith('.csv')){let text;try{text=new TextDecoder('windows-1256').decode(e.target.result);}catch{text=new TextDecoder().decode(e.target.result);}rows=text.split(/\r?\n/).map(l=>l.split(/[,;]/).map(s=>s.replace(/^"|"$/g,'').trim()));}else{const data=new Uint8Array(e.target.result);const wb=XLSX.read(data,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];rows=XLSX.utils.sheet_to_json(ws,{header:1});}let addedEmp=0, addedDept=0, updatedAtt=0;for(let i=0;i<rows.length;i++){const r=rows[i];if(!r||r.length<2)continue;if(i==0 && (String(r[0]).toLowerCase().includes('كود') || String(r[0]).toLowerCase().includes('code')))continue;const code=String(r[0]||'').trim();const name=String(r[1]||'').trim();let dateStr=String(r[2]||'').trim();const deptName=String(r[3]||'').trim();const inT=String(r[4]||'').trim().slice(0,5);const outT=String(r[5]||'').trim().slice(0,5);if(!code)continue;let deptId='';if(deptName){let existing=depts.find(d=>d.name.trim().toLowerCase()==deptName.toLowerCase());if(existing){deptId=existing.id;}else{deptId='d'+Date.now()+Math.random().toString(36).slice(2,4);depts.push({id:deptId,name:deptName,from:'08:00',to:'16:00',off:'Friday'});addedDept++;}}else{deptId=depts[0]?.id||'';}let empIdx=emps.findIndex(ex=>ex.code==code);if(empIdx>=0){if(name)emps[empIdx].name=name;if(deptId)emps[empIdx].dept=deptId;}else{emps.push({code,name:name||code,dept:deptId,from:'',to:''});addedEmp++;}if(dateStr){let iso='';if(dateStr.includes('/')){const p=dateStr.split('/');if(p.length==3){if(p[0].length==4)iso=`${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`;else iso=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;}}else if(dateStr.includes('-')){iso=dateStr.slice(0,10);}if(iso){const key=`${iso}_${code}`;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};if(inT)attendance[key].in1=inT;if(outT)attendance[key].out1=outT;updatedAtt++;}}}saveAll();
+let leaveLedger=JSON.parse(localStorage.getItem('att_leave_ledger_v1')||'[]');
+Object.defineProperty(window,'hrLeaveLedger',{configurable:true,get:function(){return leaveLedger;},set:function(value){leaveLedger=value;}});
+
+function saveExtraModules(){localStorage.setItem('att_leave_ledger_v1',JSON.stringify(leaveLedger));localStorage.setItem('att_variable_shifts_v1',JSON.stringify(variableShifts));localStorage.setItem('att_weekly_rosters_v1',JSON.stringify(weeklyRosters));}
+function saveWeeklyRoster(){const code=rosterEmp.value;const start=rosterStart.value;const p=rosterShift.value.split('|');const emp=emps.find(x=>x.code==code);if(!emp||!start)return alert('اختر الموظف وبداية الأسبوع');const dept=depts.find(x=>x.id==emp.dept)||{};if(/تنكات|حسابات|بوفيه/i.test(dept.name||''))return alert('هذه الإدارة ورديتها ثابتة؛ عدّل موعد الموظف من بياناته ولا تستخدم جدول التدوير الأسبوعي.');const d=new Date(start+'T12:00:00');d.setDate(d.getDate()+6);const end=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');const overlap=weeklyRosters.find(x=>x.code==code&&x.start!=start&&x.start<=end&&x.end>=start);if(overlap)return alert('يوجد جدول آخر لهذا الموظف يتداخل مع الأسبوع المحدد. احذف الجدول المتداخل أو عدّله أولاً.');weeklyRosters=weeklyRosters.filter(x=>!(x.code==code&&x.start==start));weeklyRosters.push({id:String(Date.now()),code,start,end,from:p[0],to:p[1],off:rosterOff.value});saveExtraModules();renderRosterTable();alert('تم حفظ جدول الأسبوع');}
+function renderRosterTable(){const e=document.getElementById('rosterEmp');if(e){const old=e.value;e.innerHTML='';emps.forEach(x=>{const o=document.createElement('option');o.value=x.code;o.textContent=x.code+' - '+x.name;e.appendChild(o);});if(old)e.value=old;}const tb=document.querySelector('#rosterTable tbody');if(!tb)return;tb.innerHTML='';const days={None:'بدون',Saturday:'السبت',Sunday:'الأحد',Monday:'الإثنين',Tuesday:'الثلاثاء',Wednesday:'الأربعاء',Thursday:'الخميس',Friday:'الجمعة'};weeklyRosters.forEach(r=>{const emp=emps.find(x=>x.code==r.code)||{};const tr=document.createElement('tr');[r.start,r.end,emp.code+' - '+(emp.name||''),r.from+' - '+r.to,(days[r.off]||r.off)+(r.off2?' + '+(days[r.off2]||r.off2):'')].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});const td=document.createElement('td');const btn=document.createElement('button');btn.className='btn-danger';btn.textContent='حذف';btn.onclick=()=>{weeklyRosters=weeklyRosters.filter(x=>x.id!=r.id);saveExtraModules();renderRosterTable();};td.appendChild(btn);tr.appendChild(td);tb.appendChild(tr);});}
+function fillModuleEmployees(){['leaveEmp','shiftEmp'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const old=el.value;el.innerHTML='';emps.forEach(e=>{const o=document.createElement('option');o.value=e.code;o.textContent=e.code+' - '+e.name;el.appendChild(o);});if(old)el.value=old;if(id=='leaveEmp')el.onchange=()=>{const e=emps.find(x=>x.code==el.value);if(e){leaveType.value=e.leaveType||'migrant';leaveHire.value=e.hireDate||'';const ct=document.getElementById('leaveConversionTarget');if(ct)ct.value=(e.leaveType||'migrant')==='migrant'?'resident':'migrant';}};});}
+function saveLeaveProfile(){
+ const emp=emps.find(e=>e.code==leaveEmp.value);if(!emp)return alert('اختار موظف');
+ const nextType=leaveType.value,nextHire=leaveHire.value;if(!nextHire)return alert('أدخل تاريخ التعيين الصحيح');
+ if(nextType!==(emp.leaveType||'migrant')){leaveType.value=emp.leaveType||'migrant';return alert('تغيير نوع الموظف يتم من خانة «تسجيل تحويل نوع الموظف» حتى نحفظ تاريخ التحويل ونسوي الرصيد بصورة صحيحة.');}
+ const changed=(emp.hireDate||'')!==nextHire;
+ if(changed&&Array.isArray(emp.leaveTransitions)&&emp.leaveTransitions.length)return alert('لا يمكن تعديل تاريخ التعيين بعد تسجيل تحويلات؛ للحفاظ على التسلسل التاريخي تواصل مع مدير النظام.');
+ if(changed){
+  const hasManual=leaveLedger.some(x=>x.code==emp.code&&!['accrual','year_close'].includes(x.kind));
+  if(hasManual&&!confirm('سيعاد بناء الاستحقاقات التلقائية فقط مع الاحتفاظ بحركات الإجازات والتسويات اليدوية. هل تريد المتابعة؟'))return;
+  leaveLedger=leaveLedger.filter(x=>!(x.code==emp.code&&['accrual','year_close'].includes(x.kind)));
+ }
+ emp.hireDate=nextHire;saveAll();
+ if(changed){const n=new Date(),today=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');ensureAccruals(today);}
+ saveExtraModules();renderLeaveModule();alert('تم حفظ بيانات الإجازة دون تغيير نوع الموظف أو حذف الحركات اليدوية.');
+}
+function registerLeaveTypeConversion(){
+ const emp=emps.find(e=>e.code==leaveEmp.value),date=document.getElementById('leaveConversionDate')?.value,target=document.getElementById('leaveConversionTarget')?.value;
+ if(!emp||!date||!target)return alert('اختار الموظف وتاريخ التحويل والنوع الجديد');
+ const current=emp.leaveType||'migrant';
+ if(target===current)return alert('النوع الجديد مطابق للنوع الحالي');
+ if(emp.hireDate&&date<emp.hireDate)return alert('تاريخ التحويل يسبق تاريخ التعيين');
+ const now=new Date(),today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+ if(date>today)return alert('سجل التحويل بعد حلول تاريخه الفعلي');
+ emp.leaveBaseType=emp.leaveBaseType||current;
+ emp.leaveTransitions=Array.isArray(emp.leaveTransitions)?emp.leaveTransitions:[];
+ if(emp.leaveTransitions.some(x=>x.date===date))return alert('يوجد تحويل مسجل بالفعل في هذا التاريخ');
+ const previous=emp.leaveTransitions.filter(x=>x.date<date).sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0];
+ const typeAtDate=previous?previous.to:emp.leaveBaseType;
+ if(typeAtDate!==current)return alert('تاريخ التحويل لا يتوافق مع النوع الحالي للموظف؛ راجع سجل التحويلات أولاً');
+ if(emp.leaveTransitions.some(x=>x.date>date))return alert('لا يمكن إضافة تحويل بتاريخ أقدم من تحويل مسجل لاحقًا');
+ if(!confirm('سيتم تسجيل التحويل من '+(current==='migrant'?'مغترب':'مقيم')+' إلى '+(target==='migrant'?'مغترب':'مقيم')+' بتاريخ '+date+'، وإعادة بناء الاستحقاقات التلقائية مع الاحتفاظ بكل الحركات اليدوية. هل تعتمد؟'))return;
+ emp.leaveTransitions.push({date,from:current,to:target});
+ emp.leaveType=target;
+ leaveLedger.push({id:'TYPE-CONV-'+emp.code+'-'+date,code:emp.code,date,kind:'conversion',label:'تحويل نوع الموظف',add:0,deduct:0,note:'تحويل من '+(current==='migrant'?'مغترب':'مقيم')+' إلى '+(target==='migrant'?'مغترب':'مقيم')+'؛ تتم التسوية تلقائيًا وفق قواعد الإجازات'});
+ saveAll();const n=new Date(),asOf=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');ensureAccruals(asOf);saveExtraModules();renderLeaveModule();alert('تم تسجيل التحويل وإعادة احتساب الاستحقاقات. راجع سجل التحويل والرصيد قبل اعتماد أي تسوية مالية.');
+}
+function leaveTypeAt(emp,iso){const list=Array.isArray(emp.leaveTransitions)?emp.leaveTransitions.filter(x=>x.date<=iso).slice().sort((a,b)=>a.date.localeCompare(b.date)):[];return list.length?list[list.length-1].to:((emp.leaveBaseType)||(emp.leaveType||'migrant'));}
+function yearsAt(emp,iso){if(!emp.hireDate||!iso)return 0;return Math.max(0,(new Date(iso+'T12:00:00')-new Date(emp.hireDate+'T12:00:00'))/(365.2425*86400000));}
+function dateAddMonths(date,n){const d=new Date(date+'T12:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return d.toISOString().slice(0,10);}
+function latestLeaveYearStart(iso){const d=new Date(iso+'T12:00:00');const y=d.getFullYear();const candidate=(d.getMonth()>11||(d.getMonth()==11&&d.getDate()>=26))?new Date(y,11,26):new Date(y-1,11,26);return candidate.toISOString().slice(0,10);}
+function ledgerBalance(code,asOf){return leaveLedger.filter(x=>x.code==code&&x.date<=asOf).reduce((s,x)=>s+(Number(x.add)||0)-(Number(x.deduct)||0),0);}
+function payrollCycleKey(iso){const d=new Date(iso+'T12:00:00');if(d.getDate()>=26){d.setDate(1);d.setMonth(d.getMonth()+1);}return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function freePermissionCount(code,iso,excludeKey){const cycle=payrollCycleKey(iso);return Object.keys(attendance).filter(k=>k!==excludeKey&&k.endsWith('_'+code)&&attendance[k]&&attendance[k].permHours&&attendance[k].permType=='free'&&payrollCycleKey(k.slice(0,k.lastIndexOf('_')))==cycle).length;}
+function absenceOrdinal(code,iso){
+ const cycle=payrollCycleKey(iso),emp=emps.find(e=>e.code==code);if(!emp)return 0;
+ const p=cycle.split('-').map(Number),start=new Date(p[0],p[1]-1,26);start.setMonth(start.getMonth()-1);
+ const end=new Date(iso+'T12:00:00'),today=new Date(),todayIso=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+ let count=0;
+ for(let d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d<=end;d.setDate(d.getDate()+1)){
+  const day=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  if(emp.hireDate&&day<emp.hireDate)continue;
+  const rec=attendance[day+'_'+code]||{},sch=getSch(emp,day);
+  const absent=!!rec.absent||(!rec.in1&&!rec.out1&&!rec.mission&&!rec.rest&&!rec.holiday&&!rec.leaveStatus&&!rec.permHours&&!isDeptRestDay(day,sch)&&day<=todayIso);
+  if(absent)count++;
+ }
+ return count;
+}
+function ensureAccruals(asOf){
+ /* قواعد الشركة (محدثة):
+    - السنة المالية للإجازات: من 26 ديسمبر إلى 25 ديسمبر
+    - المقيم: يبدأ الاستحقاق بعد 6 أشهر من تاريخ التعيين
+      * 21 يوم سنوياً
+      * بعد إكمال 10 سنوات: يصبح 30 يوم (الـ 9 أيام الزيادة تُوزع +1 يوم شهرياً من يناير حتى سبتمبر)
+      * في 26 ديسمبر يتم تصفير الرصيد المتبقي (يُسجّل year_close) ويبدأ رصيد جديد
+    - المغترب: 5 أيام كل شهر (من أول شهر عمل، أول شهر بالتناسب)
+      * بعد 10 سنوات: 6 أيام من يناير إلى سبتمبر
+      * الرصيد المتبقي يُرحّل تلقائياً للشهر التالي وحتى للسنة الجديدة
+ */
+ const now=new Date(),todayIso=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+ if(!asOf)asOf=todayIso; if(asOf>todayIso)asOf=todayIso;
+
+ const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+ const addDays=(v,n)=>{const d=new Date(v+'T12:00:00');d.setDate(d.getDate()+n);return iso(d);};
+ const daysBetween=(a,b)=>Math.max(0,Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000)+1);
+ const maxDate=(a,b)=>a>b?a:b;
+ const minDate=(a,b)=>a<b?a:b;
+
+ // امسح الحركات التلقائية القديمة فقط (لا نمسح الإجازات اليدوية أو الرصيد الافتتاحي)
+ leaveLedger=leaveLedger.filter(x=>!['accrual','year_close','conversion_offset'].includes(x.kind));
+ let made=0;
+
+ function sixMonthsAfter(hire){
+  return dateAddMonths(hire,6);
+ }
+
+ emps.forEach(emp=>{
+  if(!emp.hireDate || emp.hireDate>asOf) return;
+  const leaveType = emp.leaveType || 'migrant';
+  const hire = emp.hireDate;
+
+  // ===== مقيم =====
+  if(leaveType==='resident'){
+   const eligibleFrom = sixMonthsAfter(hire);
+   if(eligibleFrom > asOf) return; // لسه ما كملش 6 شهور
+
+   // نمر على كل سنوات الدورة من أول استحقاق
+   let cursorYearStart = latestLeaveYearStart(maxDate(eligibleFrom, hire));
+   // لو تاريخ الأهلية بعد بداية الدورة، نبدأ من الدورة المناسبة
+   if(eligibleFrom > cursorYearStart){
+    // نبدأ من دورة الأهلية
+    cursorYearStart = latestLeaveYearStart(eligibleFrom);
+   }
+
+   while(cursorYearStart <= asOf){
+    const y = Number(cursorYearStart.slice(0,4));
+    const cycleStart = cursorYearStart;               // 26-12-(y)
+    const closeDate  = (y+1)+'-12-25';                // 25-12-(y+1)
+    const grantDate  = (y+1)+'-12-26';                // يوم التصفير / بداية السنة الجديدة
+
+    const periodStart = maxDate(cycleStart, eligibleFrom);
+    const periodEnd   = minDate(closeDate, asOf);
+    if(periodStart > periodEnd){
+     cursorYearStart = grantDate;
+     continue;
+    }
+
+    const years = yearsAt(emp, periodEnd);
+    const annualRate = years >= 10 ? 30 : 21;
+
+    // استحقاق نسبي عن الفترة داخل الدورة
+    const cycleDays = daysBetween(cycleStart, closeDate);
+    const eligibleDays = daysBetween(periodStart, periodEnd);
+    let amount = cycleDays ? (annualRate * eligibleDays / cycleDays) : 0;
+
+    // توزيع الـ +9 أيام (بعد 10 سنين) كـ +1 يوم شهرياً من يناير إلى سبتمبر
+    // هنا نضيفها ضمن المبلغ السنوي (30)، والتفصيل الشهري اختياري للعرض
+    if(amount > 0.0001){
+     leaveLedger.push({
+      id: 'AUTO-RES-'+emp.code+'-'+cycleStart,
+      date: periodStart,
+      code: emp.code,
+      kind: 'accrual',
+      label: years>=10 ? 'استحقاق سنوي مقيم (30 يوم بعد 10 سنوات)' : 'استحقاق سنوي مقيم (21 يوم)',
+      add: Number(amount.toFixed(4)),
+      deduct: 0,
+      note: 'من '+periodStart+' إلى '+periodEnd+' | بعد 6 أشهر من التعيين'
+     });
+     made++;
+    }
+
+    // تصفير الرصيد في 26 ديسمبر إذا وصلنا لتاريخ التصفير
+    if(grantDate <= asOf && closeDate >= eligibleFrom){
+     const bal = ledgerBalance(emp.code, closeDate);
+     if(Math.abs(bal) > 0.0001){
+      leaveLedger.push({
+       id: 'AUTO-CLOSE-'+emp.code+'-'+closeDate,
+       date: closeDate,
+       code: emp.code,
+       kind: 'year_close',
+       label: 'تصفير رصيد المقيم في نهاية الدورة',
+       add: 0,
+       deduct: Number(bal.toFixed(4)),
+       note: 'رصيد متبقي تم تصفيره في '+closeDate+' استعداداً للصرف وبداية سنة جديدة من '+grantDate
+      });
+      made++;
+     }
+    }
+
+    cursorYearStart = grantDate;
+   }
+  }
+
+  // ===== مغترب =====
+  if(leaveType==='migrant'){
+   // أول استحقاق من تاريخ التعيين (أول شهر بالتناسب)
+   let cursor = new Date(hire+'T12:00:00');
+   cursor.setDate(26);
+   if(iso(cursor) < hire) cursor.setMonth(cursor.getMonth()+1);
+
+   let first = true;
+   let guard = 0;
+   while(iso(cursor) <= asOf && guard++ < 600){
+    const due = iso(cursor); // يوم 26 من كل شهر = تاريخ الاستحقاق
+    const periodStart = dateAddMonths(due, -1);
+    const periodEnd = addDays(due, -1);
+
+    const years = yearsAt(emp, due);
+    // 5 أيام عادي، 6 أيام بعد 10 سنين من يناير (شهر 0) إلى سبتمبر (شهر 8)
+    const rate = (years >= 10 && cursor.getMonth() <= 8) ? 6 : 5;
+
+    let amount = rate;
+    if(first){
+     const eligibleStart = maxDate(hire, periodStart);
+     const eligibleDays = daysBetween(eligibleStart, periodEnd);
+     const periodDays = daysBetween(periodStart, periodEnd);
+     amount = periodDays ? rate * eligibleDays / periodDays : 0;
+    }
+
+    if(amount > 0.0001){
+     leaveLedger.push({
+      id: 'AUTO-MIG-'+emp.code+'-'+due,
+      date: due,
+      code: emp.code,
+      kind: 'accrual',
+      label: first ? 'استحقاق أول شهر مغترب (بالتناسب)' : (rate===6 ? 'استحقاق شهري مغترب (6 أيام بعد 10 سنوات)' : 'استحقاق شهري مغترب (5 أيام)'),
+      add: Number(amount.toFixed(4)),
+      deduct: 0,
+      note: first ? ('من تاريخ التعيين '+hire+' حتى '+periodEnd) : ('استحقاق يوم 26 — الرصيد المتبقي يُرحّل تلقائياً')
+     });
+     made++;
+    }
+    first = false;
+    cursor.setMonth(cursor.getMonth()+1);
+   }
+  }
+ });
+
+ return made;
+}
+
+function runLeaveAccrual(){const d=accrualDate.value;if(!d)return alert('اختار تاريخ');const n=ensureAccruals(d);renderLeaveModule();alert('تمت إضافة '+n+' حركة استحقاق جديدة دون تكرار الحركات السابقة');}
+function renderLeaveModule(){fillModuleEmployees();const emp=emps.find(e=>e.code==leaveEmp.value);if(emp){leaveType.value=emp.leaveType||'migrant';leaveHire.value=emp.hireDate||'';const ct=document.getElementById('leaveConversionTarget');if(ct)ct.value=(emp.leaveType||'migrant')==='migrant'?'resident':'migrant';}const cd=document.getElementById('leaveConversionDate');if(cd&&!cd.value){const n=new Date();cd.value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}const now=new Date();const todayIso=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');if(!accrualDate.value)accrualDate.value=todayIso;const asOf=accrualDate.value||todayIso;ensureAccruals(asOf);const balDiv=document.getElementById('leaveBalances');if(balDiv){let html='<b>الأرصدة حتى '+asOf+'</b><br>';emps.forEach(e=>{const b=ledgerBalance(e.code,asOf);html+='<div>'+e.code+' - '+e.name+' ('+((e.leaveType||'migrant')=='migrant'?'مغترب':'مقيم')+'): <b>'+b.toFixed(2)+' يوم</b></div>';});balDiv.innerHTML=html;}const tb=document.querySelector('#leaveTable tbody');if(tb){tb.innerHTML='';leaveLedger.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{const e=emps.find(y=>y.code==x.code)||{};const bal=ledgerBalance(x.code,x.date);const tr=document.createElement('tr');[x.date,x.code,e.name||'',x.label||x.kind,Number(x.add||0).toFixed(2),Number(x.deduct||0).toFixed(2),bal.toFixed(2),x.note||''].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});tb.appendChild(tr);});}}
+let stagedLeaveImport=[];
+function downloadLeaveImportTemplate(){
+ const rows=[['التاريخ','الكود','نوع الحركة','عدد الأيام','ملاحظات'],['2026-10-01','ضع كود الموظف','مدفوعة','1','مثال — احذف صف المثال قبل الرفع'],['2026-10-05','ضع كود الموظف','بدون أجر','1','مثال'],['2026-10-10','ضع كود الموظف','تسوية','-0.5','مثال خصم نصف يوم']];
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'حركات الإجازات');XLSX.writeFile(wb,'قالب_استيراد_حركات_الإجازات.xlsx');
+}
+async function previewLeaveImport(){
+ const file=document.getElementById('leaveImportFile').files[0],box=document.getElementById('leaveImportPreview'),btn=document.getElementById('applyLeaveImportBtn');
+ stagedLeaveImport=[];btn.disabled=true;box.textContent='';
+ if(!file)return alert('اختار ملف Excel أو CSV');
+ try{
+  let rows;
+  if(file.name.toLowerCase().endsWith('.csv')){
+   const txt=new TextDecoder('windows-1256').decode(new Uint8Array(await file.arrayBuffer()));
+   const first=txt.split(/\r?\n/)[0]||'',delim=first.includes(';')?';':(first.includes('\t')?'\t':',');
+   const parse=line=>{const out=[];let v='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch=='"'&&line[i+1]=='"'&&q){v+='"';i++;}else if(ch=='"')q=!q;else if(ch===delim&&!q){out.push(v.trim());v='';}else v+=ch;}out.push(v.trim());return out;};
+   rows=txt.split(/\r?\n/).filter(x=>x.trim()).map(parse);
+  }else{
+   const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true});
+   rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+  }
+  const norm=s=>String(s||'').replace(/^\uFEFF/,'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()]/g,'');
+  const headAt=rows.findIndex(r=>{const h=r.map(norm);return h.some(x=>x==='date'||x.startsWith('التاريخ'))&&h.some(x=>['الكود','كود','رقم الموظف','employeeid'].includes(x))&&h.some(x=>['عدد الايام','الايام','days'].includes(x));});
+  if(headAt<0)throw new Error('لم أجد عناوين الأعمدة المطلوبة: التاريخ، الكود، عدد الأيام');
+  const h=rows[headAt].map(norm),col=names=>h.findIndex(x=>names.includes(x));
+  const ix={date:h.findIndex(x=>x==='date'||x.startsWith('التاريخ')),code:col(['الكود','كود','رقم الموظف','employeeid']),type:col(['نوع الحركه','الحركه','النوع','type']),days:col(['عدد الايام','الايام','days']),note:col(['ملاحظات','ملاحظه','note'])};
+  if(ix.type<0)throw new Error('عمود نوع الحركة مطلوب');
+  const dateOf=v=>{if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');if(typeof v==='number'&&v>10000){const d=XLSX.SSF.parse_date_code(v);return d?d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'):'';}const s=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const p=s.split(/[\/.-]/);if(p.length===3)return p[0].length===4?p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0'):p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');return '';};
+  const kindOf=v=>{const t=norm(v);if(['مدفوعه','اجازه مدفوعه','paid','annual','سنويه'].includes(t)||t.includes('مدفوع'))return 'paid';if(['بدوناجر','غيرمدفوعه','unpaid'].includes(t)||t.includes('بدوناجر'))return 'unpaid';if(['تسويه','تعديل','adjust','رصيد'].includes(t)||t.includes('تسويه'))return 'adjust';return '';};
+  const validDate=s=>{const d=new Date(s+'T12:00:00');return !isNaN(d.getTime())&&d.toISOString().slice(0,10)===s;};
+  const seen=new Set();let invalid=0,duplicate=0;
+  for(let i=headAt+1;i<rows.length;i++){
+   const r=rows[i];if(!r||!r.some(v=>String(v??'').trim()))continue;
+   const date=dateOf(r[ix.date]),code=String(r[ix.code]??'').trim(),kind=kindOf(r[ix.type]),days=Number(String(r[ix.days]??'').replace(',','.')),note=ix.note>=0?String(r[ix.note]??'').trim():'';
+   const emp=emps.find(e=>String(e.code)===code);
+   if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!validDate(date)||!code||!emp||!kind||!Number.isFinite(days)||(kind==='adjust'?days===0:days<=0)){invalid++;continue;}
+   const add=kind==='adjust'&&days>0?days:0,deduct=kind==='adjust'&&days<0?Math.abs(days):(kind==='paid'?days:0);
+   const storedNote=kind==='unpaid'?'عدد الأيام بدون أجر: '+days+(note?' | '+note:''):note;
+   const sig=[date,code,kind,add,deduct,storedNote].join('|');
+   if(seen.has(sig)||leaveLedger.some(x=>x.date===date&&String(x.code)===code&&x.kind===kind&&Number(x.add||0)===add&&Number(x.deduct||0)===deduct&&String(x.note||'')===storedNote)){duplicate++;continue;}
+   seen.add(sig);stagedLeaveImport.push({date,code,kind,days,add,deduct,note,label:kind==='paid'?'خصم إجازة مدفوعة (استيراد)':kind==='unpaid'?'إجازة بدون أجر (استيراد)':'تسوية رصيد (استيراد)'});
+  }
+  box.innerHTML='<b>نتيجة المعاينة:</b> صالح للإضافة: '+stagedLeaveImport.length+' | مكرر سيتم تجاهله: '+duplicate+' | صفوف غير صحيحة/كود غير موجود: '+invalid+'.<br>راجع الملف، ثم اضغط «اعتماد الحركات».';
+  btn.disabled=stagedLeaveImport.length===0;
+ }catch(err){box.textContent='تعذر قراءة الملف: '+err.message;stagedLeaveImport=[];btn.disabled=true;}
+}
+function applyLeaveImport(){
+ if(!stagedLeaveImport.length)return alert('اعمل معاينة للملف أولاً');
+ if(!confirm('سيتم إضافة '+stagedLeaveImport.length+' حركة إلى دفتر الإجازات فقط. لن يتم تعديل الحضور اليومي. هل تعتمد؟'))return;
+ const stamp=Date.now();
+ stagedLeaveImport.forEach((x,i)=>leaveLedger.push({id:'IMP'+stamp+'_'+i,date:x.date,code:x.code,kind:x.kind,label:x.label,add:x.add,deduct:x.deduct,note:x.kind==='unpaid'?'عدد الأيام بدون أجر: '+x.days+(x.note?' | '+x.note:''):x.note}));
+ saveExtraModules();stagedLeaveImport=[];document.getElementById('leaveImportFile').value='';document.getElementById('leaveImportPreview').textContent='تم اعتماد الحركات. راجع الأرصدة في الجدول.';document.getElementById('applyLeaveImportBtn').disabled=true;renderLeaveModule();
+}
+let stagedOpeningBalances=[];
+function downloadOpeningBalanceTemplate(){
+ const rows=[['كود الموظف','نوع الموظف','تاريخ التعيين','تاريخ بداية الرصيد','الرصيد الافتتاحي','ملاحظات'],['ضع الكود','مقيم','2020-01-15','2026-12-26','21','احذف صف المثال قبل الرفع'],['ضع الكود','مغترب','2024-03-10','2026-12-26','5','مثال']];
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'الأرصدة الافتتاحية');XLSX.writeFile(wb,'قالب_الأرصدة_الافتتاحية.xlsx');
+}
+async function previewOpeningBalances(){
+ const file=document.getElementById('openingBalanceFile').files[0],box=document.getElementById('openingBalancePreview'),btn=document.getElementById('applyOpeningBalancesBtn');
+ stagedOpeningBalances=[];btn.disabled=true;box.textContent='';if(!file)return alert('اختار ملف Excel أو CSV');
+ try{
+  let rows;
+  if(file.name.toLowerCase().endsWith('.csv')){
+   const txt=new TextDecoder('windows-1256').decode(new Uint8Array(await file.arrayBuffer()));
+   const first=txt.split(/\r?\n/)[0]||'',delim=first.includes(';')?';':(first.includes('\t')?'\t':',');
+   const parse=line=>{const a=[];let v='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c=='"'&&line[i+1]=='"'&&q){v+='"';i++;}else if(c=='"')q=!q;else if(c===delim&&!q){a.push(v.trim());v='';}else v+=c;}a.push(v.trim());return a;};
+   rows=txt.split(/\r?\n/).filter(x=>x.trim()).map(parse);
+  }else{
+   const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true});
+   rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+  }
+  const norm=v=>String(v??'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_()-]/g,'');
+  const hAt=rows.findIndex(r=>r.map(norm).includes('كودالموظف')&&r.map(norm).includes('الرصيدالافتتاحي'));
+  if(hAt<0)throw new Error('لم أجد عمودي كود الموظف والرصيد الافتتاحي');
+  const h=rows[hAt].map(norm),ix={code:h.indexOf('كودالموظف'),type:h.indexOf('نوعالموظف'),hire:h.indexOf('تاريخالتعيين'),date:h.indexOf('تاريخبدايةالرصيد'),balance:h.indexOf('الرصيدالافتتاحي'),note:h.indexOf('ملاحظات')};
+  if(ix.date<0||ix.balance<0)throw new Error('تاريخ بداية الرصيد والرصيد الافتتاحي مطلوبان');
+  const dateOf=v=>{if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');if(typeof v==='number'&&v>10000){const d=XLSX.SSF.parse_date_code(v);return d?d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'):'';}const z=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(z))return z;const p=z.split(/[\/.-]/);return p.length===3?(p[0].length===4?p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0'):p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0')):'';};
+  const validDate=z=>{const d=new Date(z+'T12:00:00');return !isNaN(d)&&d.toISOString().slice(0,10)===z;};
+  const seen=new Set();let invalid=0,duplicate=0;
+  for(let i=hAt+1;i<rows.length;i++){
+   const a=rows[i];if(!a||!a.some(v=>String(v??'').trim()))continue;
+   const code=String(a[ix.code]??'').trim(),date=dateOf(a[ix.date]),balance=Number(String(a[ix.balance]??'').replace(',','.'));
+   const typeRaw=ix.type>=0?norm(a[ix.type]):'',type=typeRaw.includes('مغترب')||typeRaw==='migrant'?'migrant':typeRaw.includes('مقيم')||typeRaw==='resident'?'resident':'';
+   const hire=ix.hire>=0&&String(a[ix.hire]??'').trim()?dateOf(a[ix.hire]):'';
+   const note=ix.note>=0?String(a[ix.note]??'').trim():'',emp=emps.find(e=>String(e.code)===code);
+   if(!emp||!date||!validDate(date)||!Number.isFinite(balance)||balance<0||(hire&&!validDate(hire))||(typeRaw&&!type)){invalid++;continue;}
+   const sig=code+'|'+date;if(seen.has(sig)||leaveLedger.some(x=>x.code==code&&x.date==date&&x.kind=='opening_balance')){duplicate++;continue;}
+   seen.add(sig);stagedOpeningBalances.push({code,date,balance,type,hire,note});
+  }
+  box.textContent='نتيجة المعاينة: صالح '+stagedOpeningBalances.length+' | مكرر '+duplicate+' | غير صحيح أو كود غير موجود '+invalid+'. راجع الملف قبل الاعتماد.';
+  btn.disabled=stagedOpeningBalances.length===0;
+ }catch(err){box.textContent='تعذر قراءة الملف: '+err.message;}
+}
+function applyOpeningBalances(){
+ if(!stagedOpeningBalances.length)return;
+ if(!confirm('سيتم إضافة الأرصدة الافتتاحية كسطور مستقلة في دفتر الإجازات دون حذف الحركات الموجودة. هل تعتمد؟'))return;
+ let added=0;
+ stagedOpeningBalances.forEach(x=>{
+  const emp=emps.find(e=>String(e.code)===x.code);if(!emp)return;
+  if(x.type)emp.leaveType=x.type;if(x.hire)emp.hireDate=x.hire;
+  leaveLedger.push({id:'OB'+Date.now()+Math.random(),date:x.date,code:x.code,kind:'opening_balance',label:'رصيد افتتاحي مستورد',add:x.balance,deduct:0,note:x.note||'رصيد افتتاحي'});
+  added++;
+ });
+ saveAll();saveExtraModules();stagedOpeningBalances=[];document.getElementById('applyOpeningBalancesBtn').disabled=true;document.getElementById('openingBalancePreview').textContent='تم اعتماد '+added+' رصيد افتتاحي.';renderLeaveModule();
+}
+
+function exportResidentSettlement(){
+ const year=Number(document.getElementById('settlementYear').value);
+ if(!Number.isInteger(year)||year<2000||year>2100)return alert('أدخل سنة صحيحة');
+ const closeDate=year+'-12-25',now=new Date(),today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+ if(closeDate>today)return alert('لا يمكن اعتماد تسوية سنة لم يأتِ يوم 25 ديسمبر فيها بعد. صدّر الملف بعد إقفال اليوم.');
+ ensureAccruals(today);
+ const rows=[['سنة التسوية','تاريخ الإقفال','كود الموظف','اسم الموظف','تاريخ التعيين','الرصيد المتبقي حتى 25 ديسمبر','ملاحظات']];
+ let total=0,count=0;
+ emps.filter(e=>leaveTypeAt(e,closeDate)==='resident').forEach(e=>{
+  // Exclude this year's own closing entry so the exported figure is the balance immediately before settlement.
+  const balance=leaveLedger.filter(x=>x.code==e.code&&x.date<=closeDate&&!(x.kind==='year_close'&&x.date===closeDate)).reduce((sum,x)=>sum+(Number(x.add)||0)-(Number(x.deduct)||0),0);
+  if(balance>0.000001){rows.push([year,closeDate,e.code,e.name||'',e.hireDate||'',Number(balance.toFixed(2)),'الرصيد قبل التصفير؛ للمراجعة والتسوية المالية']);total+=balance;count++;}
+ });
+ rows.push(['','','','','','الإجمالي',Number(total.toFixed(2))]);
+ const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:13},{wch:15},{wch:16},{wch:28},{wch:16},{wch:25},{wch:38}];
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'تسوية المقيمين');
+ XLSX.writeFile(wb,'تسوية_أرصدة_المقيمين_حتى_25-12-'+year+'.xlsx');
+ alert('تم تجهيز كشف '+count+' موظف مقيم بإجمالي '+total.toFixed(2)+' يوم. راجع الكشف قبل اعتماد أي تسوية مالية.');
+}
+function exportLeaveLedger(){const rows=[['التاريخ','الكود','الاسم','الحركة','إضافة','خصم','الرصيد بعد الحركة','ملاحظات']];leaveLedger.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{const e=emps.find(y=>y.code==x.code)||{};rows.push([x.date,x.code,e.name||'',x.label||x.kind,x.add||0,x.deduct||0,ledgerBalance(x.code,x.date),x.note||'']);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'حركة الإجازات');XLSX.writeFile(wb,'حركة_أرصدة_الإجازات.xlsx');}
+function downloadOxygenTemplate(){const rows=[['كود الموظف','التاريخ YYYY-MM-DD','بداية الوردية HH:MM','نهاية الوردية HH:MM','ساعات إضافي','معامل الإضافي','ملاحظات'],['467','2026-11-04','23:00','07:00','0','1','وردية ليلية']];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'ورديات');XLSX.writeFile(wb,'قالب_ورديات_الأكسجين.xlsx');}
+function importOxygenShifts(){
+ const file=document.getElementById('oxygenShiftFile').files[0];if(!file)return alert('اختر ملف الورديات أو كشف الأكسجين');
+ const reader=new FileReader();
+ reader.onload=e=>{try{
+  if(file.name.toLowerCase().endsWith('.csv')){
+   const txt=new TextDecoder('windows-1256').decode(e.target.result),first=txt.split(/\r?\n/)[0]||'',delim=first.includes(';')?';':(first.includes('\t')?'\t':',');
+   const parse=line=>{const a=[];let v='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch=='"'&&line[i+1]=='"'&&q){v+='"';i++;}else if(ch=='"')q=!q;else if(ch===delim&&!q){a.push(v.trim());v='';}else v+=ch;}a.push(v.trim());return a;};
+   const rr=txt.split(/\r?\n/).filter(x=>x.trim()).map(parse);let n=0,sk=0;
+   const dt=v=>{const s=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);const p=s.split(/[\/.-]/);return p.length===3?(p[0].length===4?s.slice(0,10):p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0')):'';};
+   const tm=v=>{const m=String(v||'').match(/(\d{1,2}):(\d{2})/);return m?String(Number(m[1])).padStart(2,'0')+':'+m[2]:'';};
+   for(let i=1;i<rr.length;i++){const a=rr[i],code=String(a[0]||'').trim(),date=dt(a[1]),from=tm(a[2]),to=tm(a[3]),emp=emps.find(x=>String(x.code)===code);if(!emp||!date||!from||!to){sk++;continue;}const start=date+'T'+from;let ed=date;if(to<=from){const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+1);ed=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}const end=ed+'T'+to;if(variableShifts.some(x=>x.code===code&&x.start===start)){sk++;continue;}const hrs=(new Date(end)-new Date(start))/3600000,extra=Number(a[4])||0,factor=Number(a[5])===2?2:1;variableShifts.push({id:'S'+Date.now()+Math.random(),code,start,end,hours:hrs,extra,factor,note:String(a[6]||'')});const key=date+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};attendance[key].in1=from;attendance[key].out1=to;if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}n++;}
+   saveAll();saveExtraModules();renderShiftTable();renderDaily();alert('تم استيراد '+n+' وردية من CSV، وتخطي '+sk+' صفوف.');return;
+  }
+  const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+  const norm=s=>String(s||'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()]/g,'');
+  const normDate=v=>{if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');if(typeof v==='number'&&v>10000){const z=XLSX.SSF.parse_date_code(v);return z?z.y+'-'+String(z.m).padStart(2,'0')+'-'+String(z.d).padStart(2,'0'):'';}const s=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);const p=s.split(/[\/.-]/);if(p.length==3){if(p[0].length==4)return p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}return '';};
+  const normTime=v=>{if(v instanceof Date&&!isNaN(v))return String(v.getHours()).padStart(2,'0')+':'+String(v.getMinutes()).padStart(2,'0');if(typeof v==='number'&&v>=0&&v<1){const m=Math.round(v*1440);return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}const s=String(v||'').trim();const m=s.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);if(!m)return '';let h=Number(m[1]);if((m[3]||'').toUpperCase()==='PM'&&h<12)h+=12;if((m[3]||'').toUpperCase()==='AM'&&h===12)h=0;return String(h).padStart(2,'0')+':'+m[2];};
+  const duration=v=>{if(v===null||v===undefined||v==='')return null;if(v instanceof Date&&!isNaN(v))return v.getHours()+v.getMinutes()/60+v.getSeconds()/3600;if(typeof v==='number')return v>=0&&v<1?v*24:v;const s=String(v).trim();const m=s.match(/^(\d+):(\d{2})(?::(\d{2}))?$/);if(m)return Number(m[1])+Number(m[2])/60+Number(m[3]||0)/3600;const n=Number(s);return Number.isFinite(n)?n:null;};
+  const deptFor=name=>{if(!name)return '';let d=depts.find(x=>norm(x.name)===norm(name));if(!d){d={id:'d'+Date.now()+Math.random().toString(36).slice(2,6),name:name,from:'08:00',to:'16:00',off:'Friday'};depts.push(d);}return d.id;};
+  let totalAdded=0,totalSkipped=0,mode='ورديات';
+  for(const sheetName of wb.SheetNames){
+   const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,raw:true,defval:''});if(!rows.length)continue;
+   let hr=-1;for(let i=0;i<Math.min(rows.length,12);i++){const h=(rows[i]||[]).map(norm);if(h.includes('الكود')&&h.includes('اليوم')&&h.includes('الاسم')){hr=i;break;}}
+   if(hr>=0){
+    mode='كشف حضور الأكسجين';
+    const heads=(rows[hr]||[]).map(norm),find=names=>heads.findIndex(h=>names.some(n=>h===norm(n))),findLast=names=>{for(let j=heads.length-1;j>=0;j--)if(names.some(n=>heads[j]===norm(n)))return j;return -1;};
+    const ix={dept:find(['الاداره']),code:find(['الكود']),name:find(['الاسم']),date:find(['اليوم']),in:findLast(['الحضور']),out:findLast(['الانصراف']),plannedIn:find(['الحضور']),plannedOut:find(['الانصراف']),status:find(['عدد ايام الحضور']),leave:find(['اجازه']),unpaid:find(['اجازه بالخصم']),work:find(['اجمالي ساعات']),delay:find(['التأخير']),extra:find(['اضافي ساعات']),penalty:find(['جزاء بالايام'])};
+    const today=new Date();const todayIso=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+    for(let i=hr+1;i<rows.length;i++){
+     const r=rows[i]||[],code=String(r[ix.code]||'').trim(),name=String(r[ix.name]||'').trim(),iso=normDate(r[ix.date]);if(!code||!iso||!/^\d+$/.test(code)){totalSkipped++;continue;}
+     let emp=emps.find(x=>String(x.code)===code);if(!emp){emp={code,name:name||code,dept:depts[0]?.id||'',from:'08:00',to:'16:00'};emps.push(emp);}else if(name)emp.name=name;
+     const dn=ix.dept>=0?String(r[ix.dept]||'').trim():'مصنع الاكسجين';if(dn)emp.dept=deptFor(dn);
+     const key=iso+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};
+     const rec=attendance[key],tin=normTime(r[ix.in]),tout=normTime(r[ix.out]),planIn=ix.plannedIn>=0?normTime(r[ix.plannedIn]):'',planOut=ix.plannedOut>=0?normTime(r[ix.plannedOut]):'',st=ix.status>=0?String(r[ix.status]||'').trim():'';
+     if(tin)rec.in1=tin;if(tout)rec.out1=tout;
+     if(planIn&&planOut){let ed=iso;if(planOut<=planIn){const nd=new Date(iso+'T12:00:00');nd.setDate(nd.getDate()+1);ed=nd.getFullYear()+'-'+String(nd.getMonth()+1).padStart(2,'0')+'-'+String(nd.getDate()).padStart(2,'0');}const start=iso+'T'+planIn,end=ed+'T'+planOut;if(!variableShifts.some(v=>v.code==code&&v.start==start))variableShifts.push({id:'SI'+Date.now()+Math.random(),code,start,end,hours:(new Date(end)-new Date(start))/3600000,extra:0,factor:1,note:'وردية مخططة مستوردة من كشف الأكسجين'});}
+     const stn=norm(st);if(stn.includes('راحه'))rec.rest=true;else if(stn.includes('غياب')){rec.absent=true;rec.absent_manual=true;}else if(stn.includes('ماموريه')||stn.includes('السويس')||stn.includes('اسكندريه')){rec.mission=true;rec.missionPlace=st;}else if(stn.includes('عطله'))rec.holiday=true;
+     const lv=ix.leave>=0?duration(r[ix.leave]):null,un=ix.unpaid>=0?duration(r[ix.unpaid]):null;
+     if(un&&un>0){rec.leaveStatus='unpaid';rec.leaveFraction=un;}else if(lv&&lv>0){rec.leaveStatus='paid';rec.leaveFraction=lv;}
+     const wh=ix.work>=0?duration(r[ix.work]):null;if(wh!==null)rec.workHours=wh;
+     const dl=ix.delay>=0?duration(r[ix.delay]):null;if(dl!==null&&dl>0)rec.delay=dl;
+     const ex=ix.extra>=0?duration(r[ix.extra]):null;if(ex!==null&&ex>0){rec.extra=ex;rec.extraFactor=1;}
+     const pn=ix.penalty>=0?Number(r[ix.penalty]):0;if(Number.isFinite(pn)&&pn>0)rec.penaltyDays=pn;
+     if(!rec.in1&&!rec.out1&&!rec.rest&&!rec.holiday&&!rec.mission&&!rec.leaveStatus&&iso<=todayIso){rec.absent=true;rec.absent_manual=true;}
+     totalAdded++;
+    }
+   }else{
+    const first=rows[0]||[];if(first.length<4)continue;
+    for(let i=1;i<rows.length;i++){const r=rows[i]||[],code=String(r[0]||'').trim(),iso=normDate(r[1]),from=normTime(r[2]),to=normTime(r[3]);if(!code||!iso||!from||!to){totalSkipped++;continue;}
+     const emp=emps.find(x=>String(x.code)===code);if(!emp){totalSkipped++;continue;}
+     const start=iso+'T'+from;let endDate=iso;if(to<=from){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+1);endDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+     const end=endDate+'T'+to;if(variableShifts.some(s=>s.code==code&&s.start==start)){totalSkipped++;continue;}
+     const extra=Number(r[4])||0,factor=Number(r[5])==2?2:1,note=String(r[6]||''),hrs=(new Date(end)-new Date(start))/3600000;
+     variableShifts.push({id:'S'+Date.now()+Math.random(),code,start,end,hours:hrs,extra,factor,note});
+     const key=iso+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};
+     attendance[key].in1=from;attendance[key].out1=to;if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}totalAdded++;
+    }
+   }
+  }
+  saveAll();saveExtraModules();renderDepts();renderEmps();renderDaily();renderReportDepts();renderShiftTable();
+  alert('تم استيراد '+totalAdded+' سجل من '+mode+'، وتخطي '+totalSkipped+' صفوف غير صالحة أو غير مرتبطة بموظف.');
+ }catch(err){alert('تعذر استيراد الملف: '+err.message);}
+ };
+ reader.readAsArrayBuffer(file);
+}
+
+function addVariableShift(){
+ const emp=emps.find(e=>e.code==shiftEmp.value),start=shiftStart.value,end=shiftEnd.value;
+ if(!emp||!start||!end||new Date(end)<=new Date(start))return alert('راجع الموظف ووقت البداية والنهاية');
+ const overlap=variableShifts.find(x=>x.code==emp.code&&x.start&&x.end&&new Date(start)<new Date(x.end)&&new Date(end)>new Date(x.start));
+ if(overlap)return alert('الوردية تتداخل مع وردية أخرى مسجلة لهذا الموظف.');
+ const date=start.slice(0,10),key=date+'_'+emp.code,oldRec=attendance[key];
+ if(oldRec&&(oldRec.in1||oldRec.out1)&&!confirm('يوجد حضور مسجل لهذا الموظف في نفس اليوم. هل تريد استبدال مواعيد الحضور والانصراف بهذه الوردية؟'))return;
+ const hours=(new Date(end)-new Date(start))/3600000,extra=Number(shiftExtra.value)||0,factor=Number(shiftFactor.value)||1;
+ variableShifts.push({id:'S'+Date.now()+Math.random(),code:emp.code,start,end,hours,extra,factor,note:shiftNote.value||''});
+ if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};
+ attendance[key].in1=start.slice(11,16);attendance[key].out1=end.slice(11,16);if(extra){attendance[key].extra=extra;attendance[key].extraFactor=factor;}
+ saveAll();saveExtraModules();renderShiftTable();renderDaily();alert('تم حفظ الوردية وربطها بيومية الموظف بتاريخ بداية الوردية.');
+}
+function syncVariableShiftsToAttendance(){let changed=false;variableShifts.forEach(s=>{if(!s.start||!s.end||!s.code)return;const date=s.start.slice(0,10),key=date+'_'+s.code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};const r=attendance[key];if(!r.in1){r.in1=s.start.slice(11,16);changed=true;}if(!r.out1){r.out1=s.end.slice(11,16);changed=true;}if(Number(s.extra)>0&&!r.extra){r.extra=Number(s.extra);r.extraFactor=Number(s.factor)||1;changed=true;}});if(changed)saveAll();}
+function renderShiftTable(){fillModuleEmployees();const tb=document.querySelector('#shiftTable tbody');if(!tb)return;tb.innerHTML='';variableShifts.slice().sort((a,b)=>a.start.localeCompare(b.start)).forEach(s=>{const e=emps.find(x=>x.code==s.code)||{};const tr=document.createElement('tr');[s.start.replace('T',' '),s.end.replace('T',' '),s.code,e.name||'',Number(s.hours).toFixed(2),s.extra,s.factor,s.note||''].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});const td=document.createElement('td');const b=document.createElement('button');b.className='btn-danger';b.textContent='حذف';b.onclick=()=>{if(confirm('حذف الوردية؟')){variableShifts=variableShifts.filter(x=>x.id!=s.id);saveExtraModules();renderShiftTable();}};td.appendChild(b);tr.appendChild(td);tb.appendChild(tr);});}
+function exportOxygenEmployeeSheets(){
+ const from=expFrom.value,to=expTo.value;if(!from||!to||from>to)return alert('اختار فترة صحيحة');
+ const norm=s=>String(s||'').toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-]/g,'');
+ const isOxygen=emp=>{const d=depts.find(x=>x.id==emp.dept)||{};return norm(d.name).includes('مصنعالاكسجين');};
+ const list=emps.filter(isOxygen).sort((a,b)=>String(a.code).localeCompare(String(b.code),'en',{numeric:true}));
+ if(!list.length)return alert('لا يوجد موظفون مسجلون في إدارة مصنع الأكسجين');
+ const timeMins=v=>{const m=String(v||'').match(/^(\d{1,2}):(\d{2})/);return m?Number(m[1])*60+Number(m[2]):null;};
+ const dur=v=>{if(v===null||v===undefined||v==='')return 0;if(v instanceof Date&&!isNaN(v))return v.getHours()+v.getMinutes()/60+v.getSeconds()/3600;if(typeof v==='number')return v;const m=String(v).trim().match(/^(\d+):(\d{2})(?::(\d{2}))?$/);if(m)return Number(m[1])+Number(m[2])/60+Number(m[3]||0)/3600;const n=Number(v);return Number.isFinite(n)?n:0;};
+ const hoursBetween=(a,b)=>{const x=timeMins(a),y=timeMins(b);if(x===null||y===null)return 0;let n=y-x;if(n<=0)n+=1440;return n/60;};
+ const days=[];for(let d=new Date(from+'T12:00:00');d<=new Date(to+'T12:00:00');d.setDate(d.getDate()+1))days.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+ const wb=XLSX.utils.book_new(),summary=[['الكود','الاسم','اجازه بالخصم','التأخيرات','اضافي ساعات','جزاءات بالايام']];
+ list.forEach((emp,idx)=>{
+  const dept=(depts.find(x=>x.id==emp.dept)||{}).name||'مصنع الاكسجين';
+  const rows=[[],['الاداره','الكود','الاسم','اليوم','الحضور','الانصراف','الحضور','الانصراف','عدد ايام الحضور','اجازه','اجازه بالخصم','اجمالي ساعات','ساعات الوردية','التأخير','الانصراف المبكر','اضافي ساعات','اضافي راحة/عطلة','جزاء بالايام']];
+  let present=0,paid=0,unpaid=0,worked=0,scheduled=0,delay=0,early=0,extra1=0,extra2=0,penalty=0,expectedDays=0,absences=0;
+  const dayRows=[];
+  for(const iso of days){
+   const rec=attendance[iso+'_'+emp.code]||{},sch=getSch(emp,iso)||{};
+   const rest=!!rec.rest||isDeptRestDay(iso,sch),holiday=!!rec.holiday,mission=!!rec.mission;
+   const isPaid=rec.leaveStatus==='paid'||rec.leaveStatus==='half_paid',isUnpaid=rec.leaveStatus==='unpaid'||rec.leaveStatus==='half_unpaid';
+   const frac=Number(rec.leaveFraction)||(rec.leaveStatus==='half_paid'||rec.leaveStatus==='half_unpaid'?0.5:1);
+   const planned=variableShifts.find(v=>v.code==emp.code&&v.start.slice(0,10)==iso),pFrom=planned?planned.start.slice(11,16):sch.from,pTo=planned?planned.end.slice(11,16):sch.to;
+   const actual=hoursBetween(rec.in1,rec.out1),work=rec.workHours!==undefined&&rec.workHours!==''?dur(rec.workHours):actual;
+   const shift=hoursBetween(pFrom,pTo)||8,dl=dur(rec.delay),er=dur(rec.early),rawExtra=dur(rec.extra),ex=holiday&&!rec.holidayExtraApproved?0:rawExtra,pn=Number(rec.penaltyDays)||0;
+   const presentFlag=!!(rec.in1||rec.out1||mission);
+   const absent=!!rec.absent||((emp.attendanceMode||'fixed')==='fixed'&&!presentFlag&&!rest&&!holiday&&!isPaid&&!isUnpaid&&(!emp.hireDate||iso>=emp.hireDate)&&iso<=new Date().toISOString().slice(0,10));
+   if(!rest&&!holiday){expectedDays++;scheduled+=shift;}
+   if(presentFlag)present++;if(absent)absences++;if(isPaid)paid+=frac;if(isUnpaid)unpaid+=frac;
+   const absenceCount=absent?absenceOrdinal(emp.code,iso):0,effectivePenalty=pn||(absenceCount==1?1.25:absenceCount==2?1.5:absenceCount==3?2:absenceCount>=4?3:0);worked+=work;delay+=dl;early+=er;penalty+=effectivePenalty;
+   if(ex){if(rest||holiday||Number(rec.extraFactor)===2)extra2+=ex;else extra1+=ex;}
+   const row=[dept,emp.code,emp.name||'',new Date(iso+'T12:00:00'),planned?planned.start.slice(11,16):(sch.from||null),planned?planned.end.slice(11,16):(sch.to||null),rec.in1||null,rec.out1||null,presentFlag?1:null,isPaid?frac:null,isUnpaid?frac:null,work||null,shift,dl||null,er||null,ex&&!(rest||holiday||Number(rec.extraFactor)===2)?ex:null,ex&&(rest||holiday||Number(rec.extraFactor)===2)?ex:null,effectivePenalty||null];
+   dayRows.push(row);
+  }
+  const totalExtra=extra1+extra2,ratio=expectedDays?absences/expectedDays:0;
+  rows[0]=['','','','','','','نسبه الغياب',ratio,expectedDays,paid,unpaid,worked,scheduled,delay,early,extra1,extra2,penalty];
+  rows.push(...dayRows);
+  const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:18},{wch:10},{wch:28},{wch:13},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:10},{wch:14},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:16},{wch:12}];ws['!views']=[{state:'frozen',ySplit:2}];ws['!autofilter']={ref:'A2:R'+rows.length};
+  for(let ri=3;ri<=rows.length;ri++){if(ws['D'+ri])ws['D'+ri].z='dd/mm/yyyy';for(const col of ['L','M','N','O','P','Q'])if(ws[col+ri])ws[col+ri].z='0.00';}
+  let name=(String(emp.code)+' '+String(emp.name||'')).replace(/[\\/?*\[\]:]/g,' ').slice(0,27).trim()||('موظف '+(idx+1));if(wb.SheetNames.includes(name))name=(name.slice(0,22)+' '+(idx+1)).slice(0,31);
+  XLSX.utils.book_append_sheet(wb,ws,name);
+  summary.push([emp.code,emp.name||'',unpaid,delay,totalExtra,penalty]);
+ });
+ const sw=XLSX.utils.aoa_to_sheet(summary);sw['!cols']=[{wch:12},{wch:28},{wch:16},{wch:16},{wch:16},{wch:16}];XLSX.utils.book_append_sheet(wb,sw,'اجمالي');
+ XLSX.writeFile(wb,'كشوف_مصنع_الأكسجين_'+from+'_الى_'+to+'.xlsx');
+}
+function exportVariableShifts(){const rows=[['بداية الوردية','نهاية الوردية','الكود','الاسم','ساعات العمل','إضافي','معامل','ملاحظات']];variableShifts.forEach(s=>{const e=emps.find(x=>x.code==s.code)||{};rows.push([s.start,s.end,s.code,e.name||'',s.hours,s.extra,s.factor,s.note||'']);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'ورديات الأكسجين');XLSX.writeFile(wb,'ورديات_مصنع_الأكسجين.xlsx');}
+
+renderDepts();renderEmps();document.getElementById('empImportMsg').textContent=`تم: إدارات ${addedDept} - موظفين ${addedEmp} - حضور ${updatedAtt}`;}catch(err){alert('خطأ: '+err.message);}};reader.readAsArrayBuffer(file);}
+function exportFullBackup(){
+ const payload={version:3,createdAt:new Date().toISOString(),depts,emps,attendance,leaveLedger,variableShifts,weeklyRosters};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');
+ a.href=url;a.download='نسخة_احتياطية_الحضور_'+new Date().toISOString().slice(0,10)+'.json';
+ document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+async function importFullBackup(){
+ const file=document.getElementById('backupFile').files[0];if(!file)return alert('اختر ملف النسخة الاحتياطية');
+ if(!confirm('سيتم استبدال بيانات الموظفين والإدارات والحضور الحالية بمحتويات النسخة. هل تريد المتابعة؟'))return;
+ try{
+  const data=JSON.parse(await file.text());
+  if(!data||!Array.isArray(data.emps)||!Array.isArray(data.depts)||!data.attendance||typeof data.attendance!=='object')throw new Error('صيغة النسخة الاحتياطية غير صحيحة');
+  emps=data.emps;depts=data.depts;attendance=data.attendance;leaveLedger=Array.isArray(data.leaveLedger)?data.leaveLedger:[];variableShifts=Array.isArray(data.variableShifts)?data.variableShifts:[];weeklyRosters=Array.isArray(data.weeklyRosters)?data.weeklyRosters:[];saveAll();saveExtraModules();
+  renderDepts();renderEmps();syncVariableShiftsToAttendance();renderDaily();renderReportDepts();renderLeaveModule();renderRosterTable();renderShiftTable();
+  alert('تمت استعادة البيانات بنجاح');
+ }catch(err){alert('تعذر استعادة النسخة: '+err.message);}
+}
+function exportEmployeesList(){
+ const rows=[['كود','اسم','إدارة','ميعاد بداية','ميعاد نهاية','الراحة الأسبوعية','تاريخ التعيين','نوع الإجازة','نظام الحضور']];
+ emps.slice().sort((a,b)=>String(a.code).localeCompare(String(b.code),'en',{numeric:true})).forEach(e=>{
+  const d=depts.find(x=>x.id==e.dept)||{};
+  rows.push([e.code,e.name||'',d.name||'',e.from||d.from||'',e.to||d.to||'',e.off||d.off||'',e.hireDate||'',e.leaveType||'',e.attendanceMode==='flexible'?'مرن':e.attendanceMode==='exempt'?'غير ملزم':'ثابت']);
+ });
+ const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'الموظفون');
+ XLSX.writeFile(wb,'بيانات_الموظفين_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+function openEmployeeMasterTab(){
+ const tab=Array.from(document.querySelectorAll('.tab')).find(x=>x.getAttribute('onclick')==="showTab('emps')");
+ if(!tab)return alert('تبويب الموظفين غير موجود');
+ tab.click();
+}
+async function importEmployeeMaster(){
+ const file=document.getElementById('employeeMasterFile').files[0];
+ const msg=document.getElementById('employeeMasterMsg');
+ if(!file)return alert('اختر ملف بيانات الموظفين أولاً');
+ try{
+  let rows;
+  if(file.name.toLowerCase().endsWith('.csv')){
+   const txt=new TextDecoder('windows-1256').decode(new Uint8Array(await file.arrayBuffer()));
+   const first=txt.split(/\r?\n/)[0]||'',delim=first.includes(';')?';':(first.includes('\t')?'\t':',');
+   const parse=line=>{const out=[];let cur='',quoted=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'&&quoted){cur+='"';i++;}else if(ch==='"')quoted=!quoted;else if(ch===delim&&!quoted){out.push(cur.trim());cur='';}else cur+=ch;}out.push(cur.trim());return out;};
+   rows=txt.split(/\r?\n/).filter(x=>x.trim()).map(parse);
+  }else{
+   const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true});
+   rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
+  }
+  const norm=v=>String(v??'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()/]/g,'');
+  const hAt=rows.findIndex(r=>r.map(norm).includes('كودالموظف')&&r.map(norm).includes('الاسم'));
+  if(hAt<0)throw new Error('لم أجد عناوين القالب. استخدم قالب بيانات الموظفين الذي يتم تنزيله من نفس الشاشة.');
+  const h=rows[hAt].map(norm),col=names=>{for(const n of names){const i=h.indexOf(norm(n));if(i>=0)return i;}return -1;};
+  const ix={code:col(['كود الموظف','الكود','كود']),name:col(['الاسم','اسم الموظف']),factory:col(['المصنع / الفرع','المصنع','الفرع']),dept:col(['الإدارة','الادارة']),job:col(['الوظيفة','المسمى الوظيفي']),hire:col(['تاريخ التعيين']),type:col(['نوع العامل']),status:col(['الحالة']),reason:col(['سبب إنهاء الخدمة']),end:col(['تاريخ إنهاء الخدمة'])};
+  const dateISO=v=>{if(!v)return '';if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');const z=String(v).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(z))return z;const p=z.split(/[/.\-]/);if(p.length===3)return p[0].length===4?p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0'):p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');return '';};
+  let added=0,updated=0,skipped=0,newDepts=0;
+  const clean=v=>String(v??'').trim();
+  for(let i=hAt+1;i<rows.length;i++){
+   const r=rows[i]||[],code=clean(r[ix.code]),name=clean(r[ix.name]);
+   if(!code||!name){if(r.some(v=>clean(v)))skipped++;continue;}
+   const factory=ix.factory>=0?clean(r[ix.factory]):'',deptName=ix.dept>=0?clean(r[ix.dept]):'';
+   let deptId='';
+   if(deptName){
+    let d=depts.find(x=>String(x.name||'').trim().toLowerCase()===deptName.toLowerCase());
+    if(!d){d={id:'d'+Date.now()+Math.random().toString(36).slice(2,7),name:deptName,from:'08:00',to:'16:00',off:'Friday'};depts.push(d);newDepts++;}
+    deptId=d.id;
+   }
+   const typeText=ix.type>=0?clean(r[ix.type]):'';
+   const leaveType=/مقيم|resident/i.test(typeText)?'resident':'migrant';
+   const statusText=ix.status>=0?clean(r[ix.status]):'';
+   const inactive=/مستبعد|منته|منتهي|ترك|غير نشط|inactive|terminated/i.test(statusText);
+   const emp=emps.find(x=>String(x.code).trim()===code);
+   const fields={code,name,factory,jobTitle:ix.job>=0?clean(r[ix.job]):'',hireDate:ix.hire>=0?dateISO(r[ix.hire]):'',terminationReason:ix.reason>=0?clean(r[ix.reason]):'',terminationDate:ix.end>=0?dateISO(r[ix.end]):''};
+   if(statusText)fields.active=!inactive;
+   if(emp){
+    Object.keys(fields).forEach(k=>{if(fields[k]!==''&&fields[k]!==undefined)emp[k]=fields[k];});
+    if(deptId)emp.dept=deptId;
+    if(!emp.leaveType)emp.leaveType=leaveType;
+    updated++;
+   }else{
+    emps.push({...fields,active:statusText?!inactive:true,dept:deptId||depts[0]?.id||'',from:'',to:'',off:'',attendanceMode:'fixed',leaveType});
+    added++;
+   }
+  }
+  if(!added&&!updated)throw new Error('لم يتم العثور على صفوف موظفين صالحة. راجع الكود والاسم.');
+  saveAll();renderEmps();renderDaily();renderReportDepts();renderRosterTable();fillModuleEmployees();
+  msg.textContent='تم استيراد بيانات الموظفين: '+added+' جديد، '+updated+' تحديث، '+newDepts+' إدارة جديدة، '+skipped+' صف متجاهل. لم يتم تعديل أي سجل حضور.';
+  document.getElementById('employeeMasterFile').value='';
+ }catch(err){msg.textContent='تعذر الاستيراد: '+err.message;alert('تعذر استيراد بيانات الموظفين: '+err.message);}
+}
+function downloadTemplate(){
+ const rows=[['كود الموظف','الاسم','المصنع / الفرع','الإدارة','الوظيفة','تاريخ التعيين','نوع العامل','الحالة','سبب إنهاء الخدمة','تاريخ إنهاء الخدمة'],
+ ['467','أحمد سمبا','مصنع العبور','التنكات','فني','01/11/2026','مغترب','عامل حالي','','']];
+ const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,'بيانات الموظفين');
+ XLSX.writeFile(wb,'قالب_بيانات_الموظفين_الثابتة.xlsx');
+}
+async function importZK(){
+ const file=document.getElementById('zkFile').files[0];if(!file)return alert('اختر ملف البصمة');
+ try{
+  const buf=await file.arrayBuffer();const txt=new TextDecoder('windows-1256').decode(buf);
+  const first=txt.split(/\r?\n/)[0]||'';const delim=first.includes(';')?';':(first.includes('\t')?'\t':',');
+  const splitLine=line=>{const out=[];let cur='',quoted=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch=='"'&&line[i+1]=='"'&&quoted){cur+='"';i++;}else if(ch=='"'){quoted=!quoted;}else if(ch==delim&&!quoted){out.push(cur.trim());cur='';}else cur+=ch;}out.push(cur.trim());return out;};
+  const rows=txt.split(/\r?\n/).filter(x=>x.trim()).map(splitLine);if(rows.length<2)return alert('الملف لا يحتوي على بيانات');
+  const norm=s=>String(s||'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[ًٌٍَُِّْـ]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()]/g,'');
+  let headerRow=-1;for(let i=0;i<Math.min(rows.length,8);i++){const h=rows[i].map(norm);if(h.includes('رقمالبصمه')&&h.includes('التاريخ')&&h.includes('الاسم')){headerRow=i;break;}}
+  if(headerRow<0)throw new Error('لم أتعرف على عناوين ملف البصمة. ارفع ملف CSV الأصلي الذي يحتوي على رقم البصمة والاسم والتاريخ.');
+  const heads=rows[headerRow].map(norm);
+  const exact=names=>{for(const n of names){const i=heads.indexOf(norm(n));if(i>=0)return i;}return -1;};
+  const contains=names=>heads.findIndex(h=>names.some(n=>h.includes(norm(n))));
+  const pick=(names, fallback)=>{const i=exact(names);return i>=0?i:fallback;};
+  const ix={
+   code:pick(['رقم البصمه','الكود','كود','رقم الموظف','employeeid','enrollno','userid','badge'],0),
+   name:pick(['الاسم','اسم الموظف','name','employeename'],1),
+   date:pick(['التاريخ','اليوم','date','workday'],2),
+   dept:pick(['الاداره','الإدارة','المواعيد','department','dept'],-1),
+   in:pick(['الحضور الفعلي','actualattendance','checkin','firstin','clockin'],-1),
+   out:pick(['الانصراف الفعلي','actualcheckout','checkout','lastout','clockout'],-1),
+   delay:pick(['تأخير','late','delay'],-1),early:pick(['انصراف مبكر','early'],-1),
+   absent:pick(['غياب','absent'],-1),leave:pick(['اجازه بالخصم','إجازة بالخصم','unpaidleave'],-1),
+   penalty:pick(['جزاء','جزاء بالايام','penalty'],-1),extra:pick(['اضافي','اضافي ساعات','overtime','extrahours','ot'],-1),extraWork:pick(['إضافي - يوم عمل','اضافي يوم عمل'],-1),
+   extraRest:pick(['إضافي - عطله اسبوعيه','اضافي عطله اسبوعيه'],-1),extraHoliday:pick(['إضافي - اجازه رسميه','اضافي اجازه رسميه'],-1),
+   exception:pick(['استثناءات','استثناء','exception'],-1),rest:pick(['عطله اسبوعيه','راحة اسبوعية','weeklyrest','restday'],-1),
+   holiday:pick(['اجازه رسميه','عطله رسميه','holiday'],-1),workHours:pick(['اجمالي ساعات العمل','ساعات العمل','workhours','workedhours'],-1),
+   factor:pick(['معامل','factor','overtimecategory'],-1),perm:pick(['اذن بالساعات','ساعات الاذن','permissionhours'],-1)
+  };
+  if(ix.in<0){const hits=heads.map((h,i)=>h==='الحضور'?i:-1).filter(i=>i>=0);ix.in=hits.length>1?hits[hits.length-1]:(hits[0]??6);}
+  if(ix.out<0){const hits=heads.map((h,i)=>h==='الانصراف'?i:-1).filter(i=>i>=0);ix.out=hits.length>1?hits[hits.length-1]:(hits[0]??7);}
+  if(ix.dept<0&&heads.includes('المواعيد'))ix.dept=heads.indexOf('المواعيد');
+  const val=(r,k)=>ix[k]>=0?String(r[ix[k]]||'').trim():'';
+  const dateISO=s=>{const v=String(s||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);const p=v.split(/[\/.-]/);if(p.length==3){if(p[0].length==4)return p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}return '';};
+  const truth=s=>/^(1|true|yes|y|نعم)$/i.test(String(s||'').trim());
+  const hours=s=>{const v=String(s||'').trim();if(!v||/[صم]|AM|PM/i.test(v))return null;const m=v.match(/^(\d{1,3}):(\d{2})(?::(\d{2}))?$/);if(m)return Number(m[1])+Number(m[2])/60+Number(m[3]||0)/3600;const n=Number(v);return Number.isFinite(n)?n:null;};
+  const validRows=rows.slice(headerRow+1).filter(r=>val(r,'code')&&dateISO(val(r,'date')));
+  if(!validRows.length)throw new Error('لم أجد صفوفًا تحتوي على كود موظف وتاريخ صحيح.');
+  const dateList=validRows.map(r=>dateISO(val(r,'date'))).sort();
+  if(!confirm('معاينة ملف البصمة: '+validRows.length+' سجل صالح، من '+dateList[0]+' إلى '+dateList[dateList.length-1]+'. سيتم تحديث سجلات هذه الأيام فقط. هل تريد الاستيراد؟'))return;
+  let updated=0,skipped=0;
+  for(let i=headerRow+1;i<rows.length;i++){
+   const r=rows[i],code=val(r,'code'),iso=dateISO(val(r,'date'));if(!code||!iso){skipped++;continue;}
+   // ملف البصمة لا ينشئ موظفين ولا يغيّر الاسم أو المصنع أو الإدارة؛ يجب أن يكون الكود موجودًا في ملفات العاملين أولاً.
+   const emp=emps.find(e=>String(e.code)===code);if(!emp){skipped++;continue;}
+   const key=iso+'_'+code;if(!attendance[key])attendance[key]={in1:'',out1:'',delay:'',early:'',noSign:'',permHours:'',permType:'free',extra:'',extraFactor:1,absent:false,mission:false,missionPlace:'',rest:false,holiday:false};
+   const rec=attendance[key],tin=val(r,'in'),tout=val(r,'out'),ex=val(r,'exception');
+   if(tin&&tin!=='0')rec.in1=tin.slice(0,5);if(tout&&tout!=='0')rec.out1=tout.slice(0,5);
+   if(val(r,'delay'))rec.delay=val(r,'delay');if(val(r,'early'))rec.early=val(r,'early');
+   const lv=val(r,'leave'),exNorm=norm(ex);
+   if(lv&&Number(lv)>0){rec.leaveStatus='unpaid';rec.leaveFraction=Number(lv);}
+   if(ix.absent>=0&&val(r,'absent')){const av=val(r,'absent');rec.absent=truth(av)||Number(av)>0;rec.absent_manual=true;if(Number(av)>1)rec.penaltyDays=Number(av);}
+   if(val(r,'penalty')&&Number(val(r,'penalty'))>0)rec.penaltyDays=Number(val(r,'penalty'));
+   if(exNorm.includes('راحة')||exNorm.includes('راحه'))rec.rest=true;
+   if(exNorm.includes('عطلة')||exNorm.includes('عطله')||exNorm.includes('اجازهرسميه'))rec.holiday=true;
+   if(exNorm.includes('ماموريه')){rec.mission=true;rec.missionPlace=ex;}
+   if(exNorm.includes('اجازه')){if(exNorm.includes('خصم')){rec.leaveStatus='unpaid';rec.leaveFraction=Number(rec.leaveFraction)||1;}else if(!rec.leaveStatus)rec.leaveStatus='paid';}
+   if(exNorm.includes('غياب')){rec.absent=true;rec.absent_manual=true;const pm=ex.match(/(\d+(?:\.\d+)?)/);if(pm&&/جزاء|يوم|ربع/.test(ex))rec.penaltyDays=Number(pm[1])+(/ربع/.test(ex)?0.25:0);}
+   if(exNorm.includes('نصف'))rec.penaltyDays=Number(rec.penaltyDays)||0.5;
+   if(val(r,'rest')&&truth(val(r,'rest')))rec.rest=true;
+   if(val(r,'holiday')&&truth(val(r,'holiday')))rec.holiday=true;
+   if(val(r,'perm')){rec.permHours=val(r,'perm');rec.permType=freePermissionCount(code,iso,key)<2?'free':'deduct';}
+   const ev=hours(val(r,'extraHoliday'))??hours(val(r,'extraRest'))??hours(val(r,'extraWork'))??hours(val(r,'extra'));
+   if(ev!==null&&ev>0){rec.extra=ev;rec.extraFactor=(hours(val(r,'extraHoliday'))!==null||hours(val(r,'extraRest'))!==null)?2:(Number(val(r,'factor'))===2?2:1);}
+   if(val(r,'workHours'))rec.workHours=hours(val(r,'workHours'))??val(r,'workHours');
+   updated++;
+  }
+  saveAll();renderDaily();renderReportDepts();
+  document.getElementById('importMsg').textContent='تم تحديث '+updated+' سجل حضور. الصفوف غير الصالحة أو الأكواد غير المسجلة تم تجاهلها: '+skipped+'. لم يتم تعديل بيانات الموظفين أو الإدارات.';
+ }catch(err){alert('تعذر استيراد ملف البصمة: '+err.message);}
+}
+
+let lastReportData=[];
+function renderReportDepts(){const div=document.getElementById('repDeptChecks');div.innerHTML='';depts.forEach(d=>{const label=document.createElement('label');label.style.cssText='background:#eee;padding:4px 8px;border-radius:6px;display:flex;gap:4px;align-items:center';label.innerHTML=`<input type="checkbox" value="${d.id}" class="repDeptChk"> ${d.name} (${d.off})`;div.appendChild(label);});const sel=document.getElementById('repPrintEmp');if(sel){const old=sel.value;sel.innerHTML='';emps.forEach(e=>{const o=document.createElement('option');o.value=e.code;o.textContent=e.code+' - '+e.name;sel.appendChild(o);});if(old)sel.value=old;}}
+function printEmployeeStatement(){
+ const emp=emps.find(e=>e.code==repPrintEmp.value),from=repFrom.value,to=repTo.value;
+ if(!emp||!from||!to||from>to)return alert('اختر الموظف والفترة بشكل صحيح');
+ const rows=[];let present=0,absent=0,rest=0,holiday=0,extra1=0,extra2=0,penaltyTotal=0,missions=0;
+ for(let d=new Date(from+'T12:00:00');d<=new Date(to+'T12:00:00');d.setDate(d.getDate()+1)){
+  const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'),rec=attendance[iso+'_'+emp.code];if(!rec)continue;
+  const sch=getSch(emp,iso),isRest=!!rec.rest||isDeptRestDay(iso,sch),status=rec.leaveStatus?({'paid':'إجازة مدفوعة','unpaid':'إجازة بدون أجر','half_paid':'نصف يوم مدفوع','half_unpaid':'نصف يوم بدون أجر'}[rec.leaveStatus]||'إجازة'):rec.absent?'غياب':rec.mission?'مأمورية':isRest?'راحة':rec.holiday?'عطلة':(rec.in1||rec.out1)?'حضور':'-';
+  if(status=='حضور'||status=='مأمورية')present++;if(status=='غياب')absent++;if(status=='راحة')rest++;if(status=='عطلة')holiday++;
+  if(rec.extra){if(rec.extraFactor==2)extra2+=Number(rec.extra)||0;else extra1+=Number(rec.extra)||0;}
+  const n=rec.absent?absenceOrdinal(emp.code,iso):0,autoPenalty=n==1?1.25:n==2?1.5:n==3?2:n>=4?3:0,applied=Number(rec.penaltyDays)||autoPenalty;
+  penaltyTotal+=applied;if(rec.mission)missions++;
+  rows.push('<tr><td>'+iso+'</td><td>'+sch.from+' - '+sch.to+'</td><td>'+(rec.in1||'')+'</td><td>'+(rec.out1||'')+'</td><td>'+(rec.workHours||'')+'</td><td>'+status+'</td><td>'+(rec.delay||'')+'</td><td>'+(rec.early||'')+'</td><td>'+(rec.noSign||'')+'</td><td>'+(applied||'')+'</td><td>'+(rec.missionPlace||'')+'</td><td>'+(rec.permHours?rec.permHours+' س '+(rec.permType=='free'?'مجاني':'خصم'):'')+'</td><td>'+(rec.extra||'')+' '+(rec.extra?'x'+(rec.extraFactor||1):'')+'</td></tr>');
+ }
+ const leaveRows=leaveLedger.filter(x=>x.code==emp.code&&x.date>=from&&x.date<=to).sort((a,b)=>a.date.localeCompare(b.date)).map(x=>'<tr><td>'+x.date+'</td><td>'+(x.label||x.kind)+'</td><td>'+(Number(x.add)||0)+'</td><td>'+(Number(x.deduct)||0)+'</td><td>'+(x.note||'')+'</td></tr>').join('');
+ const w=window.open('','_blank');if(!w)return alert('اسمح بالنوافذ المنبثقة لطباعة الكشف');
+ w.document.write('<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>كشف موظف</title><style>body{font-family:Arial;padding:20px}h2,h3{text-align:center}table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}th,td{border:1px solid #555;padding:6px;text-align:center}th{background:#eee}.summary{margin:12px 0;line-height:2}@media print{button{display:none}}</style><h2>كشف حضور وانصراف موظف</h2><h3>'+emp.code+' - '+emp.name+'</h3><div>الفترة: '+from+' إلى '+to+'</div><div class="summary">حضور: '+present+' | غياب: '+absent+' | راحة: '+rest+' | عطلات: '+holiday+' | مأموريات: '+missions+' | جزاءات: '+penaltyTotal.toFixed(2)+' يوم | إضافي x1: '+extra1+' | إضافي x2: '+extra2+'</div><table><thead><tr><th>التاريخ</th><th>الوردية</th><th>حضور</th><th>انصراف</th><th>ساعات العمل</th><th>الحالة</th><th>تأخير</th><th>مبكر</th><th>عدم توقيع</th><th>جزاء (أيام)</th><th>موقع المأمورية</th><th>إذن</th><th>إضافي</th></tr></thead><tbody>'+rows.join('')+'</tbody></table><h3>حركات الإجازات</h3><table><thead><tr><th>التاريخ</th><th>الحركة</th><th>إضافة</th><th>خصم</th><th>ملاحظات</th></tr></thead><tbody>'+leaveRows+'</tbody></table><button onclick="window.print()">طباعة</button></html>');
+ w.document.close();w.focus();
+}
+
+function calcReport(){
+ const from=repFrom.value,to=repTo.value;if(!from||!to||from>to)return alert('اختار فترة صحيحة');
+ const empSearch=(repEmpSearch.value||'').toLowerCase(),selectedDepts=Array.from(document.querySelectorAll('.repDeptChk:checked')).map(c=>c.value),tb=document.querySelector('#reportTable tbody');
+ tb.innerHTML='';lastReportData=[];let totals={};
+ for(let d=new Date(from+'T12:00:00');d<=new Date(to+'T12:00:00');d.setDate(d.getDate()+1)){
+  const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  emps.forEach(emp=>{
+   if(empSearch&&!String(emp.code).toLowerCase().includes(empSearch)&&!String(emp.name).toLowerCase().includes(empSearch))return;
+   if(selectedDepts.length>0&&!selectedDepts.includes(emp.dept))return;
+   const key=iso+'_'+emp.code,rec=attendance[key];if(!rec)return;
+   const dn=(depts.find(x=>x.id==emp.dept)||{}).name||emp.dept||'',sch=getSch(emp,iso);
+   let status='';
+   if(rec.leaveStatus)status=rec.leaveStatus=='paid'?'إجازة مدفوعة':rec.leaveStatus=='unpaid'?'إجازة بدون أجر':rec.leaveStatus=='half_paid'?'نصف يوم مدفوع':rec.leaveStatus=='half_unpaid'?'نصف يوم بدون أجر':'إجازة';
+   else if(rec.absent)status='غياب';else if(rec.mission)status='مأمورية';else if(rec.rest||isDeptRestDay(iso,sch))status='راحة';else if(rec.holiday)status='عطلة';else if(rec.in1||rec.out1)status='حضور';else status='-';
+   let ex1='',ex2='',exRest='';const reportExtra=rec.holiday&&!rec.holidayExtraApproved?0:Number(rec.extra)||0;if(reportExtra){if(rec.rest||rec.holiday)exRest=reportExtra;else if(rec.extraFactor==1)ex1=reportExtra;else ex2=reportExtra;}
+   const permStr=rec.permHours?String(rec.permHours)+'س '+(rec.permType=='free'?'مجاني':'خصم'):'';
+   if(!totals[emp.code])totals[emp.code]={code:emp.code,name:emp.name,dept:dn,absCount:0,delay:0,early:0,noSign:0,penalty:0,workHours:0,permFree:0,permDeduct:0,ex1:0,ex2:0,exRest:0,present:0};
+   let absPen=0;if(rec.absent){totals[emp.code].absCount++;const n=absenceOrdinal(emp.code,iso);absPen=n==1?1.25:n==2?1.5:n==3?2:n>=4?3:0;}
+   const appliedPenalty=Number(rec.penaltyDays)||absPen;
+   if(rec.delay)totals[emp.code].delay++;if(rec.early)totals[emp.code].early++;if(rec.noSign)totals[emp.code].noSign++;
+   if(rec.workHours)totals[emp.code].workHours+=Number(rec.workHours)||0;
+   totals[emp.code].penalty+=appliedPenalty;
+   if(rec.permHours){if(rec.permType=='free')totals[emp.code].permFree+=parseFloat(rec.permHours)||0;else totals[emp.code].permDeduct+=parseFloat(rec.permHours)||0;}
+   if(rec.extra&&!(rec.holiday&&!rec.holidayExtraApproved)){const v=parseFloat(rec.extra)||0;if(rec.rest||rec.holiday)totals[emp.code].exRest+=v;else if(rec.extraFactor==1)totals[emp.code].ex1+=v;else totals[emp.code].ex2+=v;}
+   if(status=='حضور'||status=='مأمورية')totals[emp.code].present++;
+   const row=[emp.code,emp.name,dn,iso,rec.in1||'',rec.out1||'',rec.workHours||'',status,rec.delay||'',rec.early||'',rec.noSign||'',appliedPenalty||'',permStr,absPen||'',ex1,ex2,exRest];
+   lastReportData.push({code:emp.code,name:emp.name,dept:dn,date:iso,status,rec,appliedPenalty,perm:permStr,absPen:absPen||'',ex1,ex2,exRest});
+   const tr=document.createElement('tr');row.forEach(v=>{const td=document.createElement('td');td.textContent=v??'';tr.appendChild(td);});tb.appendChild(tr);
+  });
+ }
+ const sumDiv=document.getElementById('reportSummary');sumDiv.style.display='block';let html='<b>ملخص من '+from+' إلى '+to+':</b><br>';
+ for(const code in totals){const t=totals[code];html+='<div style="border-bottom:1px solid #ddd;padding:6px"><b>'+t.code+' - '+t.name+' ('+t.dept+')</b>: حضور '+t.present+' | غياب '+t.absCount+' | تأخير '+t.delay+' | عدم توقيع '+t.noSign+' | ساعات عمل '+t.workHours.toFixed(2)+' | جزاءات '+t.penalty.toFixed(2)+' يوم | إذن مجاني '+t.permFree+'س | خصم '+t.permDeduct+'س | إضافي x1 '+t.ex1+'س | x2 '+t.ex2+'س | راحة '+t.exRest+'س</div>';}
+ sumDiv.innerHTML=html;
+}
+function exportReportExcel(){if(lastReportData.length==0)return alert('احسب الأول');const rows=[['كود','اسم','إدارة','تاريخ','حضور','انصراف','ساعات العمل','حالة','تأخير','مبكر','عدم توقيع','جزاء (أيام)','إذن','غياب شريحة','إضافي x1','إضافي x2','راحة/عطلة']];lastReportData.forEach(r=>{rows.push([r.code,r.name,r.dept,r.date,r.rec.in1,r.rec.out1,r.rec.workHours||'',r.status,r.rec.delay,r.rec.early,r.rec.noSign,r.appliedPenalty||'',r.perm,r.absPen,r.ex1,r.ex2,r.exRest]);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'تفصيلي');XLSX.writeFile(wb,`تقرير_${repFrom.value}_الى_${repTo.value}.xlsx`);}
+function exportExcel(){
+ const from=expFrom.value,to=expTo.value;
+ if(!from||!to||from>to)return alert('اختار فترة صحيحة');
+ const headers=['رقم البصمه','الإسم','التاريخ','المواعيد','الحضور الفعلي','الإنصراف الفعلي','تأخير','إنصراف مبكر','اجازه بالخصم','غياب','جزاء','إضافي','إستثناءات'];
+ const aoa=[[],headers];
+ const days=[];
+ for(let d=new Date(from+'T12:00:00');d<=new Date(to+'T12:00:00');d.setDate(d.getDate()+1)){
+  days.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+ }
+ const ordered=emps.slice().sort((a,b)=>String(a.code).localeCompare(String(b.code),'en',{numeric:true}));
+ const timeValue=v=>{if(!v)return null;const m=String(v).match(/^([0-9]{1,2}):([0-9]{2})/);return m?(Number(m[1])*60+Number(m[2]))/1440:null;};
+ const num=v=>{const n=Number(v);return Number.isFinite(n)&&n!==0?n:null;};
+ const exceptionFor=(r,sch,iso)=>{
+  if(r.holiday)return 'عطله رسميه';
+  if(r.rest||isDeptRestDay(iso,sch))return 'راحة';
+  if(r.mission)return 'ماموريه';
+  if(r.leaveStatus){
+   if(r.leaveStatus=='unpaid'||r.leaveStatus=='half_unpaid')return 'اجازه بالخصم';
+   return 'اجازه ';
+  }
+  if(r.permHours){
+   if(r.permType=='deduct')return Number(r.permHours)>=2?'اذن ساعتين بالخصم':'اذن بالخصم';
+   return 'اذن';
+  }
+  if(r.penaltyDays)return r.absent?'غياب / جزاء':'جزاء';
+  if(r.absent)return 'غياب';
+  if(r.noSign||calcNoSign(r))return 'عدم توقيع';
+  if(Number(r.extra)>0)return Number(r.extra)>=8?'يوم اضافي':'اضافي';
+  return '';
+ };
+ for(const emp of ordered){
+  const dept=depts.find(x=>x.id==emp.dept)||{};
+  for(const iso of days){
+   const rec=attendance[iso+'_'+emp.code]||{};
+   const sch=getSch(emp,iso);
+   const rest=!!rec.rest||isDeptRestDay(iso,sch);
+   const absent=!!rec.absent||(!rec.in1&&!rec.out1&&!rec.mission&&!rest&&!rec.holiday&&!rec.permHours&&!rec.leaveStatus&&(!emp.hireDate||iso>=emp.hireDate)&&iso<=(new Date().toISOString().slice(0,10)));
+   const absentCount=absent?absenceOrdinal(emp.code,iso):0;
+   const progressivePenalty=absentCount===1?1.25:absentCount===2?1.5:absentCount===3?2:absentCount>=4?3:0;
+   const unpaidLeave=(rec.leaveStatus=='unpaid'?Number(rec.leaveFraction||1):rec.leaveStatus=='half_unpaid'?Number(rec.leaveFraction||0.5):0);
+   const shiftHours=(()=>{if(!sch.from||!sch.to)return 8;const a=timeValue(sch.from),b=timeValue(sch.to);if(a===null||b===null)return 8;let h=(b-a)*24;if(h<=0)h+=24;return h||8;})();
+   const permDeduct=rec.permHours&&rec.permType=='deduct'?Number(rec.permHours)/shiftHours:0;
+   const leaveDeduct=unpaidLeave+permDeduct;
+   let exception=exceptionFor({...rec,absent},sch,iso);
+   if(Number(rec.extra)>0&&Number(rec.extraFactor)==2)exception=(exception?exception+' / ':'')+'إضافي x2';
+   const row=[
+    emp.code,emp.name||'',new Date(iso+'T12:00:00'),dept.name||emp.dept||'',
+    timeValue(rec.in1),timeValue(rec.out1),rec.delay||null,rec.early||null,
+    leaveDeduct?Number(leaveDeduct.toFixed(2)):null,absent?'Y':null,
+    num(rec.penaltyDays)||(progressivePenalty||null),num(rec.extra),exception||null
+   ];
+   aoa.push(row);
+  }
+ }
+ const last=aoa.length;
+ const totals=Array(13).fill(null);
+ for(let c=6;c<=11;c++)totals[c]= {f:'SUBTOTAL(9,'+String.fromCharCode(65+c)+'3:'+String.fromCharCode(65+c)+last+')'};
+ aoa[0]=totals;
+ const ws=XLSX.utils.aoa_to_sheet(aoa);
+ ws['!cols']=[{wch:15},{wch:27},{wch:13},{wch:22},{wch:16},{wch:16},{wch:12},{wch:14},{wch:14},{wch:10},{wch:10},{wch:12},{wch:25}];
+ ws['!views']=[{state:'frozen',ySplit:2}];
+ ws['!autofilter']={ref:'A2:M'+last};
+ for(let r=3;r<=last;r++){
+  const dc=ws['C'+r];if(dc)dc.z='dd/mm/yyyy';
+  for(const col of ['E','F'])if(ws[col+r])ws[col+r].z='hh:mm';
+  for(const col of ['G','H','I','K','L'])if(ws[col+r])ws[col+r].z='0.##';
+ }
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,'العبور');
+ XLSX.writeFile(wb,'تقرير_العبور_'+from+'_الى_'+to+'.xlsx');
+}
+renderDepts();renderEmps();
+const latestPunchDate=Object.keys(attendance).filter(k=>/^\d{4}-\d{2}-\d{2}_/.test(k)&&attendance[k]&&(attendance[k].in1||attendance[k].out1)).map(k=>k.slice(0,10)).sort().pop();dailyDate.value=latestPunchDate||new Date().toISOString().slice(0,10);
+const settlementNow=new Date();settlementYear.value=settlementNow.getFullYear()-(settlementNow.getMonth()<11||(settlementNow.getMonth()===11&&settlementNow.getDate()<25)?1:0);
+const today=new Date();const f=new Date(today);f.setDate(26);f.setMonth(f.getMonth()-1);const t=new Date(today);t.setDate(25);
+expFrom.value=f.toISOString().slice(0,10);expTo.value=t.toISOString().slice(0,10);repFrom.value=f.toISOString().slice(0,10);repTo.value=t.toISOString().slice(0,10);
+renderDaily();renderReportDepts();
+document.getElementById('periodLabel').textContent=`فترة: ${f.toISOString().slice(0,10)} إلى ${t.toISOString().slice(0,10)}`;
+</script>
+<script src="hr-import.js?v=20261109-1"></script>
+<script src="flex-tools.js?v=20261108-8"></script>
+</body>
+</html>
