@@ -159,7 +159,7 @@ tbody tr:nth-child(even){background:#fafcfd}tbody tr:hover{background:#eff8f7}
 <div style="border:2px solid #6a1b9a;padding:12px;border-radius:8px;background:#f3e5f5;margin-top:12px">
 <h4>3- النسخ الاحتياطي واستعادة البيانات</h4>
 <div class="flex"><button class="btn-primary" onclick="exportFullBackup()">تنزيل نسخة احتياطية كاملة</button><input type="file" id="backupFile" accept=".json,application/json"><button class="btn-blue" onclick="importFullBackup()">استعادة نسخة احتياطية</button></div>
-<div class="small">احتفظ بنسخة احتياطية دورية قبل مسح بيانات المتصفح أو تغيير الجهاز.</div>
+<div class="small">النسخة JSON الكاملة تشمل الموظفين والإدارات والحضور والبصمة والإجازات والورديات وملفات العاملين والمستندات المرفوعة. يمكنك نقل الملف يدويًا إلى جهاز آخر ثم اختيار «استعادة نسخة احتياطية». تنبيه: هذا نقل/نسخ احتياطي يدوي وليس مزامنة تلقائية؛ كل جهاز يحتفظ بنسخته حتى نستكمل قاعدة البيانات المركزية. الملف يحتوي بيانات شخصية ومستندات، فاحتفظ به في مكان خاص ولا ترفعه إلى مستودع GitHub عام.</div>
 </div>
 <div id="importPreview" class="small" style="margin-top:10px"></div>
 </div>
@@ -1082,7 +1082,7 @@ expFrom.value=f.toISOString().slice(0,10);expTo.value=t.toISOString().slice(0,10
 renderDaily();renderReportDepts();
 document.getElementById('periodLabel').textContent=`فترة: ${f.toISOString().slice(0,10)} إلى ${t.toISOString().slice(0,10)}`;
 </script>
-<script src="hr-import.js?v=20261108-7"></script>
+<script src="hr-import.js?v=20261109-1"></script>
 <script src="flex-tools.js?v=20261108-8"></script>
 </body>
 </html>
