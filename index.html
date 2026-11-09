@@ -154,7 +154,7 @@ tbody tr:nth-child(even){background:#fafcfd}tbody tr:hover{background:#eff8f7}
 <div style="border:2px solid var(--primary);padding:12px;border-radius:8px;margin-bottom:12px;background:#e8f5e9">
 <h4>1- بيانات الموظفين الثابتة (منفصلة عن الحضور)</h4>
 <p class="small">هذا القسم مخصص للكود والاسم والمصنع / الفرع والإدارة والوظيفة وتاريخ التعيين ونوع العامل. لا تضع فيه تواريخ الحضور أو الانصراف أو الغياب أو الراحات أو الورديات.</p>
-<div class="flex"><button class="btn-primary" onclick="openEmployeeMasterTab()">فتح ملفات العاملين للاستيراد والتحديث</button><button class="btn-sec" onclick="downloadTemplate()">تحميل قالب بيانات الموظفين</button></div>
+<div class="flex"><input type="file" id="employeeMasterFile" accept=".xlsx,.xls,.csv"><button class="btn-primary" onclick="importEmployeeMaster()">استيراد / تحديث بيانات الموظفين</button><button class="btn-sec" onclick="downloadTemplate()">تحميل قالب بيانات الموظفين</button><button class="btn-sec" onclick="openEmployeeMasterTab()">عرض قائمة الموظفين</button></div><div id="employeeMasterMsg" class="small" style="margin-top:8px"></div>
 <p class="small">يتم دمج التحديثات حسب كود الموظف، ولا يتم تعديل أو حذف أي سجل حضور قديم. بيانات الحضور اليومية تُرفع من قسم ZK أدناه فقط.</p>
 </div>
 <div style="border:2px solid var(--blue);padding:12px;border-radius:8px;background:#e3f2fd">
@@ -783,9 +783,64 @@ function exportEmployeesList(){
  XLSX.writeFile(wb,'بيانات_الموظفين_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function openEmployeeMasterTab(){
- const tab=Array.from(document.querySelectorAll('.tab')).find(x=>x.textContent.trim()==='ملفات العاملين');
- if(!tab)return alert('قسم ملفات العاملين لم يجهز بعد؛ حدّث الصفحة وحاول مرة أخرى');
+ const tab=Array.from(document.querySelectorAll('.tab')).find(x=>x.getAttribute('onclick')==="showTab('emps')");
+ if(!tab)return alert('تبويب الموظفين غير موجود');
  tab.click();
+}
+async function importEmployeeMaster(){
+ const file=document.getElementById('employeeMasterFile').files[0];
+ const msg=document.getElementById('employeeMasterMsg');
+ if(!file)return alert('اختر ملف بيانات الموظفين أولاً');
+ try{
+  let rows;
+  if(file.name.toLowerCase().endsWith('.csv')){
+   const txt=new TextDecoder('windows-1256').decode(new Uint8Array(await file.arrayBuffer()));
+   const first=txt.split(/\r?\n/)[0]||'',delim=first.includes(';')?';':(first.includes('\t')?'\t':',');
+   const parse=line=>{const out=[];let cur='',quoted=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'&&quoted){cur+='"';i++;}else if(ch==='"')quoted=!quoted;else if(ch===delim&&!quoted){out.push(cur.trim());cur='';}else cur+=ch;}out.push(cur.trim());return out;};
+   rows=txt.split(/\r?\n/).filter(x=>x.trim()).map(parse);
+  }else{
+   const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true});
+   rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
+  }
+  const norm=v=>String(v??'').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s_\-()/]/g,'');
+  const hAt=rows.findIndex(r=>r.map(norm).includes('كودالموظف')&&r.map(norm).includes('الاسم'));
+  if(hAt<0)throw new Error('لم أجد عناوين القالب. استخدم قالب بيانات الموظفين الذي يتم تنزيله من نفس الشاشة.');
+  const h=rows[hAt].map(norm),col=names=>{for(const n of names){const i=h.indexOf(norm(n));if(i>=0)return i;}return -1;};
+  const ix={code:col(['كود الموظف','الكود','كود']),name:col(['الاسم','اسم الموظف']),factory:col(['المصنع / الفرع','المصنع','الفرع']),dept:col(['الإدارة','الادارة']),job:col(['الوظيفة','المسمى الوظيفي']),hire:col(['تاريخ التعيين']),type:col(['نوع العامل']),status:col(['الحالة']),reason:col(['سبب إنهاء الخدمة']),end:col(['تاريخ إنهاء الخدمة'])};
+  const dateISO=v=>{if(!v)return '';if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');const z=String(v).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(z))return z;const p=z.split(/[/.\-]/);if(p.length===3)return p[0].length===4?p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0'):p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');return '';};
+  let added=0,updated=0,skipped=0,newDepts=0;
+  const clean=v=>String(v??'').trim();
+  for(let i=hAt+1;i<rows.length;i++){
+   const r=rows[i]||[],code=clean(r[ix.code]),name=clean(r[ix.name]);
+   if(!code||!name){if(r.some(v=>clean(v)))skipped++;continue;}
+   const factory=ix.factory>=0?clean(r[ix.factory]):'',deptName=ix.dept>=0?clean(r[ix.dept]):'';
+   let deptId='';
+   if(deptName){
+    let d=depts.find(x=>String(x.name||'').trim().toLowerCase()===deptName.toLowerCase());
+    if(!d){d={id:'d'+Date.now()+Math.random().toString(36).slice(2,7),name:deptName,from:'08:00',to:'16:00',off:'Friday'};depts.push(d);newDepts++;}
+    deptId=d.id;
+   }
+   const typeText=ix.type>=0?clean(r[ix.type]):'';
+   const leaveType=/مقيم|resident/i.test(typeText)?'resident':'migrant';
+   const statusText=ix.status>=0?clean(r[ix.status]):'';
+   const inactive=/مستبعد|منته|منتهي|ترك|غير نشط|inactive|terminated/i.test(statusText);
+   const emp=emps.find(x=>String(x.code).trim()===code);
+   const fields={code,name,factory,jobTitle:ix.job>=0?clean(r[ix.job]):'',hireDate:ix.hire>=0?dateISO(r[ix.hire]):'',active:!inactive,terminationReason:ix.reason>=0?clean(r[ix.reason]):'',terminationDate:ix.end>=0?dateISO(r[ix.end]):''};
+   if(emp){
+    Object.assign(emp,fields);
+    if(deptId)emp.dept=deptId;
+    if(!emp.leaveType)emp.leaveType=leaveType;
+    updated++;
+   }else{
+    emps.push({...fields,dept:deptId||depts[0]?.id||'',from:'',to:'',off:'',attendanceMode:'fixed',leaveType});
+    added++;
+   }
+  }
+  if(!added&&!updated)throw new Error('لم يتم العثور على صفوف موظفين صالحة. راجع الكود والاسم.');
+  saveAll();renderEmps();renderDaily();renderReportDepts();renderRosterTable();fillModuleEmployees();
+  msg.textContent='تم استيراد بيانات الموظفين: '+added+' جديد، '+updated+' تحديث، '+newDepts+' إدارة جديدة، '+skipped+' صف متجاهل. لم يتم تعديل أي سجل حضور.';
+  document.getElementById('employeeMasterFile').value='';
+ }catch(err){msg.textContent='تعذر الاستيراد: '+err.message;alert('تعذر استيراد بيانات الموظفين: '+err.message);}
 }
 function downloadTemplate(){
  const rows=[['كود الموظف','الاسم','المصنع / الفرع','الإدارة','الوظيفة','تاريخ التعيين','نوع العامل','الحالة','سبب إنهاء الخدمة','تاريخ إنهاء الخدمة'],
