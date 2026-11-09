@@ -1064,7 +1064,7 @@ function exportExcel(){
  XLSX.writeFile(wb,'تقرير_العبور_'+from+'_الى_'+to+'.xlsx');
 }
 renderDepts();renderEmps();
-dailyDate.value=new Date().toISOString().slice(0,10);
+const latestPunchDate=Object.keys(attendance).filter(k=>/^\d{4}-\d{2}-\d{2}_/.test(k)&&attendance[k]&&(attendance[k].in1||attendance[k].out1)).map(k=>k.slice(0,10)).sort().pop();dailyDate.value=latestPunchDate||new Date().toISOString().slice(0,10);
 const settlementNow=new Date();settlementYear.value=settlementNow.getFullYear()-(settlementNow.getMonth()<11||(settlementNow.getMonth()===11&&settlementNow.getDate()<25)?1:0);
 const today=new Date();const f=new Date(today);f.setDate(26);f.setMonth(f.getMonth()-1);const t=new Date(today);t.setDate(25);
 expFrom.value=f.toISOString().slice(0,10);expTo.value=t.toISOString().slice(0,10);repFrom.value=f.toISOString().slice(0,10);repTo.value=t.toISOString().slice(0,10);
