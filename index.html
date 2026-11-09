@@ -232,6 +232,17 @@ tbody tr:nth-child(even){background:#fafcfd}tbody tr:hover{background:#eff8f7}
 </div>
 </div>
 <script>
+/* FRESH_START_RESET_2026_11: clear previous local attendance data once */
+(function(){
+ const resetKey='att_fresh_start_reset_2026_11';
+ if(localStorage.getItem(resetKey)==='done') return;
+ [
+  'att_depts_v81','att_depts_v8','att_emps_v81','att_emps_v8',
+  'att_data_v81','att_data_v8','att_variable_shifts_v1',
+  'att_weekly_rosters_v1','att_leave_ledger_v1'
+ ].forEach(k=>localStorage.removeItem(k));
+ localStorage.setItem(resetKey,'done');
+})();
 let depts=JSON.parse(localStorage.getItem('att_depts_v81')||localStorage.getItem('att_depts_v8')||'[]');
 let emps=JSON.parse(localStorage.getItem('att_emps_v81')||localStorage.getItem('att_emps_v8')||'[]');
 let attendance=JSON.parse(localStorage.getItem('att_data_v81')||localStorage.getItem('att_data_v8')||'{}');
