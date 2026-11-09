@@ -591,6 +591,106 @@
     XLSX.writeFile(wb, 'حركة_أرصدة_الإجازات.xlsx');
   };
 
+
+  // Full portable JSON backup: includes attendance, shifts, HR master data and private employee documents.
+  function readBlobAsDataURL(blob) {
+    return new Promise(function(resolve,reject){
+      const reader=new FileReader();
+      reader.onload=function(){resolve(String(reader.result||''));};
+      reader.onerror=function(){reject(reader.error||new Error('تعذر قراءة مستند'));};
+      reader.readAsDataURL(blob);
+    });
+  }
+  function dataURLToBlob(dataURL) {
+    const parts=String(dataURL||'').split(',');
+    if(parts.length!==2) throw new Error('بيانات أحد المستندات غير صالحة');
+    const mime=(parts[0].match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
+    const raw=atob(parts[1]),bytes=new Uint8Array(raw.length);
+    for(let i=0;i<raw.length;i++) bytes[i]=raw.charCodeAt(i);
+    return new Blob([bytes],{type:mime});
+  }
+  window.exportFullBackup = async function() {
+    try {
+      const db=await openHrDb();
+      const docs=await new Promise(function(resolve,reject){
+        const tx=db.transaction('documents','readonly'),req=tx.objectStore('documents').getAll();
+        req.onsuccess=function(){resolve(req.result||[]);};
+        req.onerror=function(){reject(req.error||new Error('تعذر قراءة المستندات'));};
+      });
+      const portableDocs=[];
+      for(const doc of docs) {
+        portableDocs.push({
+          id:doc.id,code:doc.code,name:doc.name,type:doc.type,size:doc.size,
+          addedAt:doc.addedAt,dataURL:await readBlobAsDataURL(doc.blob)
+        });
+      }
+      const payload={
+        format:'ahmed-hr-full-backup-v1',
+        createdAt:new Date().toISOString(),
+        depts:depts,emps:emps,attendance:attendance,
+        leaveLedger:window.hrLeaveLedger||[],
+        variableShifts:variableShifts,weeklyRosters:weeklyRosters,
+        employeeMaster:hrMaster,employeeDocuments:portableDocs
+      };
+      const blob=new Blob([JSON.stringify(payload)],{type:'application/json;charset=utf-8'});
+      const url=URL.createObjectURL(blob),a=document.createElement('a');
+      a.href=url;a.download='نسخة_كاملة_نظام_الموارد_البشرية_'+new Date().toISOString().slice(0,10)+'.json';
+      document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},30000);
+      const total=portableDocs.length;
+      const msg=document.getElementById('hrImportMsg');
+      if(msg)msg.textContent='تم تجهيز نسخة JSON كاملة تشمل '+(emps||[]).length+' موظفًا و'+Object.keys(attendance||{}).length+' سجل حضور و'+total+' مستندًا. احتفظ بها في مكان خاص وآمن.';
+    } catch(err) {
+      alert('تعذر إنشاء النسخة الكاملة: '+(err.message||err));
+    }
+  };
+  window.importFullBackup = async function() {
+    const input=document.getElementById('backupFile');
+    const file=input&&input.files&&input.files[0];
+    if(!file){alert('اختر ملف النسخة الاحتياطية JSON');return;}
+    try {
+      const data=JSON.parse(await file.text());
+      if(!data||data.format!=='ahmed-hr-full-backup-v1'||
+        !Array.isArray(data.emps)||!Array.isArray(data.depts)||
+        !data.attendance||typeof data.attendance!=='object'||
+        !Array.isArray(data.leaveLedger)||!Array.isArray(data.employeeDocuments)) {
+        throw new Error('الملف ليس نسخة كاملة حديثة من نظام الموارد البشرية');
+      }
+      if(!confirm('سيتم استبدال بيانات هذا المتصفح بالكامل ببيانات النسخة، بما فيها الحضور والإجازات والورديات وملفات العاملين والمستندات. لن يمكن التراجع إلا بنسخة احتياطية أخرى. هل تريد المتابعة؟'))return;
+      emps=data.emps;depts=data.depts;attendance=data.attendance;
+      window.hrLeaveLedger=data.leaveLedger;
+      variableShifts=Array.isArray(data.variableShifts)?data.variableShifts:[];
+      weeklyRosters=Array.isArray(data.weeklyRosters)?data.weeklyRosters:[];
+      hrMaster=data.employeeMaster&&typeof data.employeeMaster==='object'?data.employeeMaster:{active:[],former:[],formerOld:[],unmatchedLeave:[]};
+      await saveHrMaster();
+      const db=await openHrDb();
+      await new Promise(function(resolve,reject){
+        const tx=db.transaction('documents','readwrite'),store=tx.objectStore('documents');
+        store.clear();
+        (data.employeeDocuments||[]).forEach(function(doc){
+          if(!doc||!doc.id||!doc.code||!doc.dataURL)throw new Error('يوجد مستند غير مكتمل داخل النسخة');
+          store.put({id:doc.id,code:String(doc.code),name:doc.name||'document',type:doc.type||'application/octet-stream',size:Number(doc.size)||0,addedAt:doc.addedAt||new Date().toISOString(),blob:dataURLToBlob(doc.dataURL)});
+        });
+        tx.oncomplete=resolve;
+        tx.onerror=function(){reject(tx.error||new Error('تعذر استعادة المستندات'));};
+        tx.onabort=function(){reject(tx.error||new Error('تم إلغاء استعادة المستندات'));};
+      });
+      saveAll();saveExtraModules();
+      if(typeof renderDepts==='function')renderDepts();
+      if(typeof renderEmps==='function')renderEmps();
+      if(typeof renderDaily==='function')renderDaily();
+      if(typeof renderReportDepts==='function')renderReportDepts();
+      if(typeof renderLeaveModule==='function')renderLeaveModule();
+      if(typeof renderRosterTable==='function')renderRosterTable();
+      if(typeof renderShiftTable==='function')renderShiftTable();
+      renderHRData();
+      const msg=document.getElementById('hrImportMsg');
+      if(msg)msg.textContent='تمت استعادة النسخة الكاملة بنجاح: '+emps.length+' موظفًا و'+Object.keys(attendance).length+' سجل حضور و'+data.employeeDocuments.length+' مستند.';
+      alert('تمت استعادة النسخة الكاملة بنجاح. راجع بيانات الموظفين والحضور والإجازات.');
+    } catch(err) {
+      alert('تعذر استعادة النسخة الكاملة: '+(err.message||err));
+    }
+  };
+
   addHrTab();
   loadHrMaster().then(renderHRData);
   window.renderHRData = renderHRData;
