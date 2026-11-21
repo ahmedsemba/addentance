@@ -1,0 +1,2792 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام إدارة الموارد البشرية والحضور السحابي | شركة البروي</title>
+<!-- SheetJS for Excel Import/Export -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Firebase SDK (v8 Compat for pure static browser compatibility) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="firebase-sync.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #087f70;
+  --primary-dark: #065e53;
+  --primary-light: #e6f7f4;
+  --ink: #172b3a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --surface: #ffffff;
+  --canvas: #f4f7fa;
+  --blue: #1565c0;
+  --blue-light: #e3f2fd;
+  --danger: #dc2626;
+  --danger-light: #fee2e2;
+  --warn: #d97706;
+  --warn-light: #fef3c7;
+  --success: #059669;
+  --accent: #21a38b;
+}
+
+* { box-sizing: border-box; font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+body { margin: 0; background: var(--canvas); color: var(--ink); line-height: 1.5; }
+
+/* Header & Top Bar */
+header {
+  background: linear-gradient(115deg, #073b49, #087f70 72%, #159b86);
+  color: #fff;
+  padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+header h1 { margin: 0; font-size: 19px; font-weight: 800; }
+.header-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.badge { padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; }
+.badge-online { background: #059669; color: #fff; }
+.badge-offline { background: #64748b; color: #fff; }
+.badge-branch { background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+.badge-alert { background: #ef4444; color: #fff; animation: pulse 1.5s infinite; cursor: pointer; }
+@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+/* Main Layout */
+.container { max-width: 1800px; padding: 18px; margin: auto; display: grid; grid-template-columns: 245px minmax(0, 1fr); gap: 18px; align-items: start; }
+
+/* Sidebar Tabs */
+.tabs {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+  position: sticky;
+  top: 16px;
+}
+.tab {
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.15s ease;
+  text-align: right;
+}
+.tab:hover { background: #f1f5f9; color: var(--primary); }
+.tab.active { background: var(--primary-light); color: var(--primary-dark); border-color: #bbf0e7; font-weight: 800; }
+.tab-icon { font-size: 15px; }
+
+/* Cards & Content */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+}
+.card h3 { color: #0f4c5c; margin-top: 0; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: space-between; }
+
+/* Form Controls */
+input, select {
+  min-height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+input:focus, select:focus { outline: 2px solid #99e5d8; border-color: var(--primary); }
+button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+button:hover { filter: brightness(0.95); transform: translateY(-1px); }
+button:active { transform: translateY(0); }
+
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-sec { background: #e9eff4; color: #334155; }
+.btn-blue { background: var(--blue); color: #fff; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-warn { background: var(--warn); color: #fff; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; font-size: 12px; background: #fff; }
+th, td { border: 1px solid #e2e8f0; padding: 7px 8px; text-align: center; }
+th { background: #f8fafc; color: #334155; font-weight: 800; position: sticky; top: 0; z-index: 2; }
+tbody tr:nth-child(even) { background: #fbfdfe; }
+tbody tr:hover { background: #eef8f6; }
+
+.flex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.small { font-size: 11px; color: var(--muted); }
+.summary { background: #effaf7; border: 1px solid #b8e6db; color: #14564c; border-radius: 10px; padding: 12px; margin-top: 10px; }
+.edit-box { background: #fffaf0; border: 1px solid #f2d49a; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.bulk-bar { background: #eaf8f5; border: 1px solid #9dd9cc; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* Branch Specific Badges */
+.tag-obour { background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+.tag-suez { background: #fef3c7; color: #b45309; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+.tag-alex { background: #dcfce7; color: #15803d; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+.tag-pending { background: #fee2e2; color: #b91c1c; padding: 2px 6px; border-radius: 4px; font-weight: 800; border: 1px dashed #ef4444; }
+
+/* Modal Styles */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-card {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 650px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  padding: 24px;
+}
+
+@media(max-width: 992px) {
+  .container { grid-template-columns: 1fr; }
+  .tabs { position: static; flex-direction: row; overflow-x: auto; }
+  .tab { flex: 0 0 auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="flex">
+    <h1>نظام إدارة الحضور والموارد البشرية | متعدد الفروع</h1>
+    <span id="periodLabel" class="badge" style="background:rgba(255,255,255,0.25)">فترة العمل: 26 إلى 25</span>
+  </div>
+  <div class="header-badges">
+    <span id="pendingApprovalsHeaderBadge" class="badge badge-alert" style="display:none" onclick="showTab('approvals')" title="يوجد طلبات تعديل مرسلة من السويس أو الإسكندرية بانتظار موافقتك">🔔 طلبات اعتماد معلقة</span>
+    <span id="userRoleBadge" class="badge badge-branch">المستخدم: مدير النظام (صلاحية كاملة)</span>
+    <span id="cloudStatusBadge" class="badge badge-offline" onclick="openFirebaseSettingsModal()" style="cursor:pointer" title="اضغط لضبط إعدادات الربط السحابي">⚪ محلي (أوفلاين)</span>
+    <button class="btn-sec" onclick="openFirebaseSettingsModal()" style="padding:4px 8px;font-size:11px">⚙️ إعدادات السحابة</button>
+    <button class="btn-blue" onclick="window.open('employee-portal.html','_blank')" style="padding:4px 10px;font-size:11px">📱 بوابة الموظف</button>
+    <button class="btn-danger" onclick="logoutRole()" style="padding:4px 8px;font-size:11px">خروج</button>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Tabs Navigation -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('daily')"><span class="tab-icon">📅</span> الحضور واليومية</div>
+    <div class="tab" id="tabApprovalsBtn" onclick="showTab('approvals')"><span class="tab-icon">✅</span> اعتمادات الفروع <span id="approvalsCountBadge" style="background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;display:none">0</span></div>
+    <div class="tab" id="tabSpecialBtn" onclick="showTab('special')"><span class="tab-icon">⭐</span> الفئات الخاصة (العبور)</div>
+    <div class="tab" onclick="showTab('emps')"><span class="tab-icon">👥</span> بيانات العاملين</div>
+    <div class="tab" onclick="showTab('shifts')"><span class="tab-icon">⏰</span> الورديات والدورات</div>
+    <div class="tab" onclick="showTab('leave')"><span class="tab-icon">🏖️</span> الإجازات والأرصدة</div>
+    <div class="tab" onclick="showTab('reports')"><span class="tab-icon">📊</span> التقارير وتقفيل الرواتب</div>
+    <div class="tab" onclick="showTab('import')"><span class="tab-icon">📥</span> استيراد البصمة وExcel</div>
+    <div class="tab" onclick="showTab('export')"><span class="tab-icon">💾</span> النسخ الاحتياطي السحابي</div>
+  </div>
+
+  <!-- Main Work Area -->
+  <div id="contentArea">
+
+    <!-- 1. TAB: DAILY ATTENDANCE -->
+    <div id="tab-daily" class="card">
+      <div class="flex" style="justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">
+          <span>شاشة الحضور والانصراف اليومية — دمج البصمة والتعديل المباشر</span>
+          <span id="managerEditNotice" class="small" style="color:var(--primary);font-weight:700;margin-inline-start:10px"></span>
+        </h3>
+        <div class="flex">
+          <input type="date" id="dailyDate" style="width:auto">
+          <input type="search" id="dailySearch" placeholder="بحث بالكود أو الاسم أو الإدارة" style="width:200px" oninput="renderDaily()">
+          <select id="branchFilter" style="width:130px" onchange="renderDaily()">
+            <option value="">كل الفروع</option>
+            <option value="العبور">فرع العبور</option>
+            <option value="السويس">فرع السويس</option>
+            <option value="الإسكندرية">فرع الإسكندرية</option>
+          </select>
+          <button class="btn-primary" onclick="renderDaily()">عرض اليومية</button>
+          <button class="btn-warn" onclick="autoCalculateDaily()">اقتراح التأخير والغياب</button>
+        </div>
+      </div>
+
+      <!-- Friday / Overtime Flexible Rules Bar (احنا اللي نحدد) -->
+      <div class="edit-box" style="background:#f0fdfa;border-color:#5eead4;margin-bottom:12px;padding:10px 14px">
+        <div class="flex" style="justify-content:space-between">
+          <div>
+            <b>⭐ خيارات احتساب جمعة الـ 12 ساعة والساعات الإضافية (تحديد حر):</b>
+            <div class="small">
+              • <b>لو راحته الأساسية الجمعة:</b> ممكن احتساب الـ 12 ساعة كاملة إضافي.<br>
+              • <b>لو راحته يوم آخر والوردية 12س:</b> ممكن احتساب 4 ساعات إضافي فقط (فوق الـ 8 ساعات الأساسية).<br>
+              • نحدد المعامل (×1 أو ×2) أو عدد الساعات لكل موظف أو إدارة دفعة واحدة.
+            </div>
+          </div>
+          <button class="btn-blue" onclick="openFridayRuleModal()">⚙️ تطبيق قاعدة الـ 12 ساعة على المحددين</button>
+        </div>
+      </div>
+
+      <div class="bulk-bar">
+        <strong>إجراءات جماعية:</strong>
+        <label><input type="checkbox" id="selectAllDaily" onchange="toggleAllDaily(this.checked)"> تحديد الكل</label>
+        <select id="bulkDept" style="width:130px"><option value="">كل الإدارات</option></select>
+        <button class="btn-sec" onclick="filterByDept()">فلتر</button>
+        <button class="btn-blue" onclick="bulkActionDaily('rest')">راحة أسبوعية</button>
+        <button class="btn-blue" onclick="bulkActionDaily('holiday')">عطلة رسمية</button>
+        <button class="btn-warn" onclick="bulkActionDaily('clearDelay')">حذف تأخير</button>
+        <button class="btn-warn" onclick="bulkActionDaily('clearEarly')">حذف مبكر</button>
+        <button class="btn-warn" onclick="bulkActionDaily('clearNoSign')">حذف عدم توقيع</button>
+        <button class="btn-danger" onclick="bulkActionDaily('clearAbs')">حذف غياب</button>
+        <button class="btn-sec" onclick="clearDailyFilter()">إلغاء الفلتر</button>
+      </div>
+
+      <div style="overflow-x:auto;max-height:68vh">
+        <table id="dailyTable">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="headCheckDaily" onchange="toggleAllDaily(this.checked)"></th>
+              <th>كود</th>
+              <th>اسم الموظف</th>
+              <th>الفرع</th>
+              <th>الإدارة</th>
+              <th>الوردية</th>
+              <th>الحالة / الحركة</th>
+              <th title="وقت حضور البصمة">الحضور الفعلي</th>
+              <th title="وقت انصراف البصمة">الانصراف الفعلي</th>
+              <th>ساعات العمل</th>
+              <th>تأخير</th>
+              <th>مبكر</th>
+              <th>عدم توقيع</th>
+              <th>إذن</th>
+              <th>جزاء</th>
+              <th>إضافي</th>
+              <th>الجمعة/الراحة</th>
+              <th>مأمورية</th>
+              <th>حالة التعديل</th>
+              <th>تعديل شامل</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="dailyCountSummary" class="small" style="margin-top:8px"></div>
+    </div>
+
+    <!-- 2. TAB: APPROVALS QUEUE (MANAGER REVIEW FOR SUEZ & ALEXANDRIA) -->
+    <div id="tab-approvals" class="card" style="display:none">
+      <div class="flex" style="justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">طلبات التعديلات والاستثناءات المرسلة من السويس والإسكندرية (اعتماد المدير)</h3>
+        <div class="flex">
+          <label class="small" style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="requireApprovalToggle" checked onchange="toggleApprovalRequired(this.checked)">
+            تفعيل شرط موافقة المدير على تعديلات السويس والإسكندرية
+          </label>
+          <button class="btn-sec" onclick="renderApprovalsQueue()">تحديث القائمة</button>
+        </div>
+      </div>
+
+      <div class="summary" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af;margin-bottom:14px">
+        📌 <b>آلية العمل:</b> عندما يُجري زميل السويس أو الإسكندرية تعديلاً في الحضور أو الانصراف أو التأخير أو الإضافي أو الاستثناءات، يُحفظ التعديل كطلب معلق، وتظهر لك تفاصيل القيمة القديمة والجديدة لاعتمادها بنقرة واحدة أو رفضها. المدير يستطيع التعديل المباشر في أي وقت دون وسيط.
+      </div>
+
+      <div style="overflow-x:auto;max-height:65vh">
+        <table id="approvalsTable">
+          <thead>
+            <tr>
+              <th>تاريخ اليوم</th>
+              <th>الفرع</th>
+              <th>كود الموظف</th>
+              <th>اسم الموظف</th>
+              <th>نوع التعديل</th>
+              <th>القيمة الأصلية</th>
+              <th>القيمة المطلوبة</th>
+              <th>بواسطة</th>
+              <th>وقت الطلب</th>
+              <th>القرار</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 3. TAB: SPECIAL CATEGORIES (OBOUR COLLEAGUE VIEW) -->
+    <div id="tab-special" class="card" style="display:none">
+      <div class="flex" style="justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">شاشة الفئات الخاصة — عمال، سائقين، أمن، ومطبخ (قواعد العبور الخاصة)</h3>
+        <div class="flex">
+          <input type="date" id="specialDate" style="width:auto">
+          <input type="search" id="specialSearch" placeholder="بحث كود أو اسم" style="width:180px" oninput="renderSpecial()">
+          <button class="btn-primary" onclick="renderSpecial()">تحديث الشاشة</button>
+        </div>
+      </div>
+
+      <div class="edit-box" style="border-color:#087f70">
+        <b>قواعد احتساب الفئات الخاصة:</b>
+        <div class="small">
+          • <b>الغياب:</b> خصم يومان ثابتان في كل مرة (بدون تصاعد).<br>
+          • <b>بيات 1:</b> إضافة يوم كامل + 5 ساعات إضافية.<br>
+          • <b>بيات 2:</b> إضافة يومان كاملان إضافيان.<br>
+          • <b>العطلة الرسمية:</b> تحديد يدوي لعدد الأيام الإضافية (يوم واحد، ويومان في الأعياد، و3 أيام مع البيات بمكان بعيد).<br>
+          • <b>حافز الساعة:</b> الساعة التاسعة (أول ساعة بعد 8 ساعات) تُحتسب حافزاً، وما زاد عنها يُحتسب ساعات إضافية تلقائياً بمعامل ×1 (ويسري أيضاً في أيام البيات).
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;max-height:68vh">
+        <table id="specialTable">
+          <thead>
+            <tr>
+              <th>كود</th>
+              <th>اسم العامل</th>
+              <th>الفئة / الإدارة</th>
+              <th>حضور يدوي</th>
+              <th>انصراف يدوي</th>
+              <th>غياب (2 يوم)</th>
+              <th>نوع البيات</th>
+              <th>عطلة رسمية (أيام إضافي)</th>
+              <th>حافز الساعة</th>
+              <th>ساعات إضافي إضافية (×1)</th>
+              <th>إجازة / استثناء</th>
+              <th>ملاحظات</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="flex" style="margin-top:12px">
+        <button class="btn-primary" onclick="saveSpecialBatch()">💾 حفظ واعتماد حضور الفئات الخاصة</button>
+        <button class="btn-blue" onclick="exportSpecialReport()">📊 تصدير تقرير العمال الشهري (26 إلى 25)</button>
+      </div>
+    </div>
+
+    <!-- 4. TAB: EMPLOYEE MASTER DATA -->
+    <div id="tab-emps" class="card" style="display:none">
+      <div class="flex" style="justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">بيانات العاملين الشاملة ومسوغات التعيين (قسم 4 بالمواصفات)</h3>
+        <div class="flex">
+          <select id="empFilterBranch" style="width:130px" onchange="renderEmps()"><option value="">كل الفروع</option><option value="العبور">العبور</option><option value="السويس">السويس</option><option value="الإسكندرية">الإسكندرية</option></select>
+          <select id="empFilterType" style="width:110px" onchange="renderEmps()"><option value="">كل الأنواع</option><option value="resident">مقيم</option><option value="migrant">مغترب</option></select>
+          <input type="search" id="empMasterSearch" placeholder="بحث بالكود أو الاسم أو الرقم القومي" style="width:200px" oninput="renderEmps()">
+          <button class="btn-primary" onclick="openNewEmpModal()">+ إضافة موظف جديد</button>
+          <button class="btn-blue" onclick="exportEmployeesExcel()">تصدير Excel</button>
+        </div>
+      </div>
+
+      <div id="expiryAlerts" class="summary" style="display:none;background:#fef2f2;border-color:#fca5a5;color:#991b1b;margin-bottom:14px"></div>
+
+      <div style="overflow-x:auto;max-height:65vh">
+        <table id="empMasterTable">
+          <thead>
+            <tr>
+              <th>الكود</th>
+              <th>الاسم</th>
+              <th>الفرع</th>
+              <th>الإدارة</th>
+              <th>الوظيفة</th>
+              <th>النوع</th>
+              <th>تاريخ التعيين</th>
+              <th>الرقم القومي</th>
+              <th>انتهاء البطاقة</th>
+              <th>الموبايل</th>
+              <th>الرقم التأميني</th>
+              <th>مسوغات التعيين</th>
+              <th>الحالة</th>
+              <th>تعديل</th>
+              <th>إنهاء الخدمة</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="empMasterCount" class="small" style="margin-top:8px"></div>
+    </div>
+
+    <!-- 5. TAB: SHIFTS & ROTATIONS -->
+    <div id="tab-shifts" class="card" style="display:none">
+      <h3>إدارة وتخطيط الورديات الثابتة والدورية (قسم 5 بالمواصفات)</h3>
+
+      <div class="edit-box" style="border-color:#2563eb">
+        <b>مواعيد الورديات المعتمدة حسب الفرع:</b>
+        <div class="small" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;margin-top:6px">
+          <div>• <b>ورديات العبور والإسكندرية:</b> 7:00 ص - 3:00 م | 3:00 م - 11:00 م | 11:00 م - 7:00 ص</div>
+          <div>• <b>ورديات السويس:</b> 6:30 ص - 2:30 م | 2:30 م - 10:30 م | 10:30 م - 6:30 ص</div>
+          <div>• <b>نهاري 1:</b> 8:00 ص - 4:00 م | <b>نهاري 2:</b> 9:00 ص - 5:00 م | <b>رمضان:</b> 6 ساعات</div>
+          <div>• <b>مؤسسة أهل البروي:</b> 12:00 ظهراً - 4:00 م</div>
+        </div>
+      </div>
+
+      <div class="edit-box">
+        <b>توليد دورة الأمن التلقائية (3 أسابيع متكررة)</b>
+        <div class="small">دورة تبدأ السبت: أسبوع 1 صباحي (جمعة 12 ساعة 7ص-7م)، أسبوع 2 مسائي (جمعة 12 ساعة 7م-7ص)، أسبوع 3 ليلي (جمعة راحة ليلية ثابتة تعويضاً عن الإضافي). الساعات الزائدة عن 8 في الجمعة تحسب ×2.</div>
+        <div class="flex" style="margin-top:10px">
+          <div><label class="small">الموظف</label><select id="rotSecEmp"></select></div>
+          <div><label class="small">تاريخ بداية الدورة (السبت)</label><input type="date" id="rotSecStart"></div>
+          <div><label class="small">راحة الموظف الأسبوعية</label><select id="rotSecOff"><option value="Saturday">السبت</option><option value="Sunday">الأحد</option><option value="Monday">الإثنين</option><option value="Tuesday">الثلاثاء</option><option value="Wednesday">الأربعاء</option><option value="Thursday">الخميس</option><option value="Friday">الجمعة</option></select></div>
+          <div><label class="small">عدد مرات التكرار</label><input type="number" id="rotSecCycles" min="1" max="24" value="4" style="width:70px"></div>
+          <button class="btn-primary" onclick="buildSecurityRotationCycle()" style="align-self:flex-end">توليد وحفظ الدورة</button>
+        </div>
+      </div>
+
+      <div class="flex" style="justify-content:space-between">
+        <b>جدول الورديات الأسبوعية المسجلة:</b>
+        <button class="btn-sec" onclick="exportWeeklyRostersExcel()">تصدير الورديات Excel</button>
+      </div>
+      <div style="overflow-x:auto;max-height:45vh;margin-top:8px">
+        <table id="rosterTable">
+          <thead><tr><th>بداية الأسبوع</th><th>نهايته</th><th>الموظف</th><th>الوردية</th><th>يوم الراحة</th><th>حذف</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 6. TAB: LEAVE BALANCES -->
+    <div id="tab-leave" class="card" style="display:none">
+      <div class="flex" style="justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">إدارة رصيد الإجازات والدفتر العام (قسم 9 بالمواصفات)</h3>
+        <div class="flex">
+          <button class="btn-blue" onclick="window.open('employee-portal.html','_blank')">🔍 بوابة استعلام الموظفين (بالكود والرقم القومي)</button>
+          <button class="btn-sec" onclick="exportLeaveLedgerExcel()">تصدير حركة الإجازات Excel</button>
+        </div>
+      </div>
+
+      <div class="edit-box" style="border-color:#087f70">
+        <b>قواعد حساب رصيد الإجازات:</b>
+        <div class="small">
+          • <b>المقيم:</b> يستحق بعد 6 أشهر من التعيين، 21 يوماً سنوياً. بعد 10 سنوات يصبح 30 يوماً (+1 يوم شهرياً من يناير حتى سبتمبر). في <b>26 ديسمبر</b> يصفر الرصيد ويصدر شيت للصرف.<br>
+          • <b>المغترب:</b> 5 أيام شهرياً تضاف يوم 26 من كل شهر (أول شهر بالتناسب)، والرصيد يرحل شهرياً وسنوياً. بعد 10 سنوات يصبح 6 أيام من يناير حتى سبتمبر.<br>
+          • <b>الخصم التلقائي:</b> عند اختيار (إجازة من الرصيد) في شاشة الحضور تخصم تلقائياً من الرصيد هنا.
+        </div>
+      </div>
+
+      <div class="bulk-bar">
+        <strong>حركة يدوية / تسوية رصيد:</strong>
+        <select id="leaveActionEmp" style="width:180px"></select>
+        <select id="leaveActionType" style="width:140px">
+          <option value="adjust_add">إضافة رصيد (+)</option>
+          <option value="adjust_deduct">خصم من الرصيد (-)</option>
+          <option value="paid_manual">إجازة مدفوعة</option>
+          <option value="unpaid_manual">إجازة بدون أجر</option>
+        </select>
+        <input type="date" id="leaveActionDate" style="width:140px">
+        <input type="number" id="leaveActionDays" step="0.5" value="1" style="width:80px">
+        <input type="text" id="leaveActionNote" placeholder="بيان الحركة / سبب التسوية" style="width:200px">
+        <button class="btn-primary" onclick="addManualLeaveMovement()">تسجيل الحركة</button>
+      </div>
+
+      <div class="flex" style="margin-bottom:10px">
+        <label>حساب الاستحقاقات التلقائية حتى تاريخ:</label>
+        <input type="date" id="accrualCalcDate" style="width:150px">
+        <button class="btn-primary" onclick="triggerLeaveAccruals()">احتساب الآن</button>
+        <button class="btn-warn" onclick="exportResidentSettlementYearEnd()">تصدير تسوية المقيمين السنوية (26 ديسمبر)</button>
+      </div>
+
+      <div id="leaveSummaryBox" class="summary"></div>
+      <div style="overflow-x:auto;max-height:55vh;margin-top:10px">
+        <table id="leaveTable">
+          <thead><tr><th>التاريخ</th><th>الكود</th><th>اسم الموظف</th><th>النوع</th><th>الحركة</th><th>إضافة (+)</th><th>خصم (-)</th><th>الرصيد بعد الحركة</th><th>ملاحظات</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 7. TAB: REPORTS & PAYROLL CLOSING -->
+    <div id="tab-reports" class="card" style="display:none">
+      <h3>التقارير التفصيلية وتقفيل المرتبات الشهرية (من 26 إلى 25)</h3>
+      <div class="edit-box">
+        <div class="flex">
+          <div><label class="small">من تاريخ</label><input type="date" id="repStartDate"></div>
+          <div><label class="small">إلى تاريخ</label><input type="date" id="repEndDate"></div>
+          <div><label class="small">الفرع</label><select id="repBranch"><option value="">كل الفروع</option><option value="العبور">العبور</option><option value="السويس">السويس</option><option value="الإسكندرية">الإسكندرية</option></select></div>
+          <div><label class="small">بحث موظف</label><input type="search" id="repSearchEmp" placeholder="كود أو اسم" style="width:160px"></div>
+          <button class="btn-primary" onclick="generateReport()" style="align-self:flex-end">استخراج التقرير</button>
+          <button class="btn-blue" onclick="exportPayrollExcel()" style="align-self:flex-end">📊 تصدير شيت المرتبات Excel</button>
+        </div>
+      </div>
+
+      <div id="reportSummaryStats" class="summary" style="display:none"></div>
+      <div style="overflow-x:auto;max-height:65vh;margin-top:12px">
+        <table id="reportTable">
+          <thead>
+            <tr>
+              <th>كود</th>
+              <th>اسم الموظف</th>
+              <th>الفرع</th>
+              <th>الإدارة</th>
+              <th>أيام الحضور</th>
+              <th>أيام الغياب</th>
+              <th>خصم الغياب</th>
+              <th>تأخير</th>
+              <th>مبكر</th>
+              <th>عدم توقيع</th>
+              <th>إذن مخصوم</th>
+              <th>إجازات بالخصم</th>
+              <th>جزاءات</th>
+              <th>إجمالي الخصومات</th>
+              <th>إضافي ×1</th>
+              <th>إضافي ×2</th>
+              <th>إضافي بيات/عطلة</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 8. TAB: IMPORT (ZK BIOMETRIC & EXCEL) -->
+    <div id="tab-import" class="card" style="display:none">
+      <h3>استيراد البيانات — البصمة وقوائم الموظفين والأرصدة</h3>
+
+      <!-- ZK BIOMETRIC CSV -->
+      <div class="edit-box" style="border:2px solid var(--primary);background:#f0fdf4">
+        <h4 style="margin:0 0 8px 0;color:#166534">1. استيراد ملف ماكينة البصمة ZK (CSV / Excel)</h4>
+        <div class="small" style="margin-bottom:8px">
+          • يدعم ترميز Windows-1256 والفواصل (;) أو (,).<br>
+          • يتم قراءة كود البصمة وتاريخ اليوم ووقت الحضور ووقت الانصراف وإعادة حساب التأخيرات والغياب بدقة تامة طبقاً لوردية كل موظف.<br>
+          • البصمة الواحدة تعامل تلقائياً كعدم توقيع (نصف يوم خصم قابل للحذف).
+        </div>
+        <div class="flex">
+          <input type="file" id="zkFileInput" accept=".csv,.xlsx,.xls" style="max-width:320px">
+          <select id="zkTargetBranch" style="width:160px">
+            <option value="العبور">بصمة فرع العبور</option>
+            <option value="السويس">بصمة فرع السويس</option>
+            <option value="الإسكندرية">بصمة فرع الإسكندرية</option>
+          </select>
+          <button class="btn-primary" onclick="importBiometricFile()">رفع واعتماد ملف البصمة</button>
+        </div>
+        <div id="zkImportResultMsg" class="small" style="margin-top:8px"></div>
+      </div>
+
+      <!-- MASTER EMPLOYEES EXCEL -->
+      <div class="edit-box" style="border:2px solid var(--blue);background:#eff6ff">
+        <h4 style="margin:0 0 8px 0;color:#1e40af">2. استيراد وتحديث بيانات العاملين الشاملة من Excel</h4>
+        <div class="small" style="margin-bottom:8px">يشمل الكود، الاسم، الفرع، الإدارة، تاريخ التعيين، نوع العامل، الرقم القومي، رقم التأمين، الأوراق الثبوتية.</div>
+        <div class="flex">
+          <input type="file" id="empMasterFileInput" accept=".xlsx,.xls,.csv" style="max-width:320px">
+          <button class="btn-blue" onclick="importEmployeeMasterExcel()">استيراد / دمج بيانات العاملين</button>
+          <button class="btn-sec" onclick="downloadEmployeeMasterTemplate()">تحميل قالب Excel فارغ</button>
+        </div>
+        <div id="empMasterImportMsg" class="small" style="margin-top:8px"></div>
+      </div>
+
+      <!-- OPENING LEAVE BALANCES -->
+      <div class="edit-box" style="border:2px solid var(--warn);background:#fffbeb">
+        <h4 style="margin:0 0 8px 0;color:#92400e">3. استيراد الأرصدة الافتتاحية للإجازات</h4>
+        <div class="flex">
+          <input type="file" id="openingBalancesFileInput" accept=".xlsx,.xls,.csv" style="max-width:320px">
+          <button class="btn-warn" onclick="importOpeningBalancesExcel()">استيراد الأرصدة الافتتاحية</button>
+          <button class="btn-sec" onclick="downloadLeaveBalanceTemplate()">تحميل قالب الأرصدة</button>
+        </div>
+        <div id="openingBalancesMsg" class="small" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- 9. TAB: BACKUP & CLOUD SETTINGS -->
+    <div id="tab-export" class="card" style="display:none">
+      <h3>النسخ الاحتياطي والربط السحابي (Firebase & Backup)</h3>
+      <div class="edit-box">
+        <b>1. النسخ الاحتياطي اليدوي الكامل (JSON Portable Backup):</b>
+        <div class="small" style="margin:8px 0">تحتوي النسخة على الموظفين، الإدارات، سجلات الحضور، الأرصدة والدفتر، والورديات بالكامل. احتفظ بها أسبوعياً للسلامة.</div>
+        <div class="flex">
+          <button class="btn-primary" onclick="downloadFullBackupJSON()">📥 تنزيل نسخة احتياطية كاملة (.JSON)</button>
+          <input type="file" id="restoreBackupFileInput" accept=".json" style="max-width:280px">
+          <button class="btn-danger" onclick="restoreFullBackupJSON()">🔄 استعادة البيانات من نسخة احتياطية</button>
+        </div>
+      </div>
+
+      <div class="edit-box">
+        <b>2. حالة الربط السحابي (Firebase Firestore Realtime):</b>
+        <div class="small" style="margin:8px 0">يتيح المزامنة الفورية بين فروع العبور، السويس، والإسكندرية وبوابة الموظف في نفس اللحظة عبر الإنترنت على GitHub Pages.</div>
+        <div id="cloudDetailedStatus" class="summary"></div>
+        <div class="flex" style="margin-top:10px">
+          <button class="btn-blue" onclick="openFirebaseSettingsModal()">⚙️ تعديل بيانات الربط السحابي</button>
+          <button class="btn-primary" onclick="syncAllLocalToCloud()">☁️ رفع كل البيانات المحلية إلى السحابة فوراً</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL: DETAILED ATTENDANCE EDIT (MANAGER DIRECT EDIT OR COLLEAGUE REQUEST) -->
+<div id="attendanceEditModal" class="modal-overlay">
+  <div class="modal-card" style="max-width:560px">
+    <h3 id="attEditModalTitle" style="margin-top:0">تعديل سجل حضور الموظف</h3>
+    <p class="small" id="attEditSubtitle"></p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+      <div>
+        <label class="small">وقت الحضور الفعلي:</label>
+        <input type="time" id="mAttIn">
+      </div>
+      <div>
+        <label class="small">وقت الانصراف الفعلي:</label>
+        <input type="time" id="mAttOut">
+      </div>
+      <div>
+        <label class="small">خصم تأخير:</label>
+        <select id="mAttDelay">
+          <option value="">بدون</option>
+          <option value="0.5">خصم نصف يوم (0.5)</option>
+          <option value="1">خصم يوم (1)</option>
+        </select>
+      </div>
+      <div>
+        <label class="small">خصم انصراف مبكر:</label>
+        <select id="mAttEarly">
+          <option value="">بدون</option>
+          <option value="0.5">خصم نصف يوم (0.5)</option>
+        </select>
+      </div>
+      <div>
+        <label class="small">عدم توقيع (بصمة واحدة):</label>
+        <select id="mAttNoSign">
+          <option value="">لا يوجد</option>
+          <option value="0.5">خصم نصف يوم (0.5)</option>
+        </select>
+      </div>
+      <div>
+        <label class="small">حالة الغياب:</label>
+        <select id="mAttAbsent">
+          <option value="no">حاضر / مسجل</option>
+          <option value="yes">غياب (احتساب بالخصم المتصاعد)</option>
+        </select>
+      </div>
+      <div>
+        <label class="small">ساعات إضافي:</label>
+        <input type="number" step="0.5" id="mAttExtra" placeholder="0">
+      </div>
+      <div>
+        <label class="small">معامل الإضافي:</label>
+        <select id="mAttExtraFactor">
+          <option value="1">عادي ×1</option>
+          <option value="2">مضاعف ×2 (عطلات / جمعة 12س)</option>
+        </select>
+      </div>
+      <div>
+        <label class="small">إذن ساعات:</label>
+        <select id="mAttPerm">
+          <option value="">لا يوجد</option>
+          <option value="1">1 ساعة</option>
+          <option value="2">2 ساعة</option>
+          <option value="3">3 ساعات</option>
+          <option value="4">4 ساعات</option>
+        </select>
+      </div>
+      <div>
+        <label class="small">نوع الإذن:</label>
+        <select id="mAttPermType">
+          <option value="free">مجاني (بحد أقصى مرتين بالشهر)</option>
+          <option value="deduct">مخصوم بالساعة من الراتب</option>
+        </select>
+      </div>
+      <div>
+        <label class="small">إجازة / حركة:</label>
+        <select id="mAttLeave">
+          <option value="">—</option>
+          <option value="paid">إجازة من الرصيد (يوم)</option>
+          <option value="half_paid">إجازة من الرصيد (نصف يوم)</option>
+          <option value="unpaid">إجازة بالخصم (يوم)</option>
+          <option value="half_unpaid">إجازة بالخصم (نصف يوم)</option>
+          <option value="mission">مأمورية عمل</option>
+          <option value="rest">راحة أسبوعية</option>
+          <option value="holiday">عطلة رسمية</option>
+          <option value="sick">مرضي</option>
+          <option value="death">وفاة أقارب (3 أيام)</option>
+        </select>
+      </div>
+      <div>
+        <label class="small">مكان المأمورية (إن وجدت):</label>
+        <input type="text" id="mAttMissionPlace" placeholder="جهة المأمورية">
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <label class="small">سبب أو ملاحظة التعديل:</label>
+      <input type="text" id="mAttNote" placeholder="اكتب مبرر التعديل إن وجد" style="width:100%">
+    </div>
+
+    <div class="flex" style="justify-content:flex-end;margin-top:18px">
+      <button class="btn-sec" onclick="closeAttendanceEditModal()">إلغاء</button>
+      <button class="btn-primary" id="btnSaveAttendanceModal" onclick="commitAttendanceModalEdit()">💾 حفظ التعديل</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: FRIDAY 12-HOUR FLEXIBLE RULE SELECTOR (احنا اللي نحدد) -->
+<div id="fridayRuleModal" class="modal-overlay">
+  <div class="modal-card" style="max-width:540px">
+    <h3 style="margin-top:0">تطبيق قاعدة وردية الجمعة 12 ساعة (خيارات مرنة)</h3>
+    <p class="small">حدد الموظفين أولاً من الجدول، ثم اختر طريقة الاحتساب المناسبة وفقاً لراحتهم الأسبوعية:</p>
+
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;margin:12px 0">
+      <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:10px">
+        <input type="radio" name="friRuleChoice" value="all12" checked style="width:auto;min-height:0;margin-top:4px">
+        <div>
+          <b>الخيار الأول: احتساب الـ 12 ساعة كاملة كإضافي</b>
+          <div class="small">يُطبق إذا كان الموظف مربوطاً على وردية راحتها الأساسية يوم الجمعة ونزل وردية 12 ساعة كاملة.</div>
+        </div>
+      </label>
+
+      <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:10px">
+        <input type="radio" name="friRuleChoice" value="extra4" style="width:auto;min-height:0;margin-top:4px">
+        <div>
+          <b>الخيار الثاني: احتساب 4 ساعات إضافي فقط</b>
+          <div class="small">يُطبق إذا كانت راحة الموظف الأساسية في يوم آخر (الأسبوع فيه 8 ساعات عمل أساسية + 4 ساعات إضافية).</div>
+        </div>
+      </label>
+
+      <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">
+        <input type="radio" name="friRuleChoice" value="custom" style="width:auto;min-height:0;margin-top:4px">
+        <div>
+          <b>الخيار الثالث: تحديد يدوي مخصص</b>
+          <div class="small">حدد عدد ساعات الإضافي بنفسك والمعامل المطلوب.</div>
+        </div>
+      </label>
+    </div>
+
+    <div id="customFriHoursBox" style="display:none;margin-bottom:12px" class="flex">
+      <div><label class="small">عدد الساعات الإضافية:</label><input type="number" id="customFriHours" step="0.5" value="4" style="width:100px"></div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label class="small">معامل احتساب الساعات الإضافية:</label>
+      <select id="friFactorChoice">
+        <option value="2">مضاعف ×2 (طبقاً للمواصفات: الساعات الزائدة عن 8 في الجمعة تحسب ×2)</option>
+        <option value="1">عادي ×1</option>
+      </select>
+    </div>
+
+    <div class="flex" style="justify-content:flex-end">
+      <button class="btn-sec" onclick="closeFridayRuleModal()">إلغاء</button>
+      <button class="btn-primary" onclick="applyFridayRuleToSelected()">اعتماد وتطبيق على المحددين</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EMPLOYEE EDIT / ADD -->
+<div id="empModal" class="modal-overlay">
+  <div class="modal-card" style="max-width:780px">
+    <h3 id="empModalTitle" style="margin-top:0">بيانات الموظف ومسوغات التعيين</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px">
+      <div><label class="small">كود الموظف *</label><input type="text" id="mEmpCode"></div>
+      <div><label class="small">اسم الموظف *</label><input type="text" id="mEmpName"></div>
+      <div>
+        <label class="small">المصنع / الفرع *</label>
+        <select id="mEmpBranch">
+          <option value="العبور">العبور</option>
+          <option value="السويس">السويس</option>
+          <option value="الإسكندرية">الإسكندرية</option>
+        </select>
+      </div>
+      <div><label class="small">الإدارة *</label><input type="text" id="mEmpDept" placeholder="مثال: الأمن / الصيانة / الإنتاج"></div>
+      <div><label class="small">الوظيفة</label><input type="text" id="mEmpJob"></div>
+      <div><label class="small">نوع العامل *</label><select id="mEmpType"><option value="resident">مقيم (21 يوم سنوياً)</option><option value="migrant">مغترب (5 أيام شهرياً)</option></select></div>
+      <div><label class="small">تاريخ التعيين</label><input type="date" id="mEmpHireDate"></div>
+      <div><label class="small">رقم الموبايل</label><input type="text" id="mEmpMobile"></div>
+      <div><label class="small">العنوان</label><input type="text" id="mEmpAddress"></div>
+      <div><label class="small">الرقم القومي (14 رقم) *</label><input type="text" id="mEmpNationalId" maxlength="14" placeholder="يستخدم في استعلام الموظف"></div>
+      <div><label class="small">تاريخ انتهاء الرقم القومي</label><input type="date" id="mEmpNationalExpiry"></div>
+      <div><label class="small">تاريخ الميلاد</label><input type="date" id="mEmpBirthDate"></div>
+      <div><label class="small">رخصة القيادة</label><select id="mEmpLicense"><option value="لا">لا</option><option value="نعم">نعم</option><option value="معفي">معفي</option></select></div>
+      <div><label class="small">تاريخ انتهاء الرخصة</label><input type="date" id="mEmpLicenseExpiry"></div>
+      <div><label class="small">الرقم التأميني</label><input type="text" id="mEmpInsuranceNo"></div>
+      <div><label class="small">الوظيفة في التأمين</label><input type="text" id="mEmpInsuranceJob"></div>
+      <div><label class="small">المبلغ المؤمن عليه</label><input type="text" id="mEmpInsuranceAmount"></div>
+      <div><label class="small">تاريخ الاستقالة / إنهاء الخدمة</label><input type="date" id="mEmpResignDate"></div>
+    </div>
+
+    <div style="margin-top:14px;border-top:1px solid #e2e8f0;padding-top:10px">
+      <b>قائمة مسوغات التعيين والأوراق (أحضر / لم يحضر):</b>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-top:8px">
+        <div><label class="small">أصل المؤهل الدراسي</label><select id="mDocEdu"><option value="لا">لم يحضر</option><option value="نعم">أحضر</option></select></div>
+        <div><label class="small">أصل شهادة الميلاد</label><select id="mDocBirth"><option value="لا">لم يحضر</option><option value="نعم">أحضر</option></select></div>
+        <div><label class="small">أصل شهادة التجنيد</label><select id="mDocMil"><option value="لا">لم يحضر</option><option value="نعم">أحضر</option><option value="معفي">معفي</option></select></div>
+        <div><label class="small">صورة الرقم القومي</label><select id="mDocId"><option value="لا">لم يحضر</option><option value="نعم">أحضر</option></select></div>
+        <div><label class="small">الفيش والتشبيه</label><select id="mDocFish"><option value="لا">لم يحضر</option><option value="نعم">أحضر</option></select></div>
+        <div><label class="small">تحليل المخدرات</label><select id="mDocDrug"><option value="لا">لم يحضر</option><option value="نعم">أحضر</option></select></div>
+        <div><label class="small">الصور الشخصية</label><select id="mDocPhotos"><option value="لا">لم يحضر</option><option value="نعم">أحضر</option></select></div>
+        <div><label class="small">صورة الرخصة</label><select id="mDocLic"><option value="لا">لم يحضر</option><option value="نعم">أحضر</option><option value="معفي">معفي</option></select></div>
+      </div>
+    </div>
+
+    <div class="flex" style="justify-content:flex-end;margin-top:18px">
+      <button class="btn-sec" onclick="closeEmpModal()">إلغاء</button>
+      <button class="btn-primary" onclick="saveEmpMasterRecord()">💾 حفظ بيانات الموظف</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: FIREBASE CONFIGURATION -->
+<div id="firebaseModal" class="modal-overlay">
+  <div class="modal-card">
+    <h3 style="margin-top:0">إعدادات الربط السحابي (Firebase Realtime Sync)</h3>
+    <p class="small">قم بإنشاء مشروع مجاني على <a href="https://console.firebase.google.com" target="_blank" style="color:var(--primary);font-weight:700">Firebase Console</a> وانسخ كود الإعدادات (Config):</p>
+    <div>
+      <label class="small">API Key</label>
+      <input type="text" id="fbApiKey" placeholder="AIzaSy...">
+    </div>
+    <div style="margin-top:8px">
+      <label class="small">Project ID</label>
+      <input type="text" id="fbProjectId" placeholder="company-hr-project">
+    </div>
+    <div style="margin-top:8px">
+      <label class="small">App ID</label>
+      <input type="text" id="fbAppId" placeholder="1:123456789:web:abcdef">
+    </div>
+    <div style="margin-top:8px">
+      <label class="small">أو الصق كود التكوين بالكامل (JSON Config):</label>
+      <textarea id="fbRawJson" rows="4" style="width:100%;border-radius:8px;border:1px solid #cbd5e1;padding:8px;font-family:monospace;font-size:11px" placeholder='{"apiKey": "...", "projectId": "..."}'></textarea>
+    </div>
+    <div class="flex" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn-sec" onclick="closeFirebaseSettingsModal()">إغلاق</button>
+      <button class="btn-danger" onclick="clearFirebaseConfig()">مسح الإعدادات والعودة للمحلي</button>
+      <button class="btn-primary" onclick="saveFirebaseSettings()">حفظ والاتصال بالسحابة</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: LOGIN / ROLE SELECTION -->
+<div id="loginModal" class="modal-overlay" style="display:none">
+  <div class="modal-card" style="max-width:440px;text-align:center">
+    <div style="background:var(--primary-light);color:var(--primary-dark);width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:24px">🏢</div>
+    <h2 style="margin:0 0 6px 0;font-size:20px">تسجيل الدخول للنظام</h2>
+    <p class="small" style="margin-bottom:18px">اختر دورك الوظيفي وأدخل كلمة المرور الخاصة بفرعك</p>
+
+    <div style="text-align:right">
+      <label class="small">المستخدم / الفرع:</label>
+      <select id="loginRoleSelect" onchange="onRoleChanged()" style="margin-bottom:12px">
+        <option value="admin">المدير العام (صلاحية تعديل مطلقة لكافة الفروع)</option>
+        <option value="obour">زميل العبور (الفئات الخاصة: عمال، سائقين، أمن، مطبخ)</option>
+        <option value="suez">زميل السويس (فرع السويس - تعديلات خاضعة لاعتماد المدير)</option>
+        <option value="alex">زميل الإسكندرية (فرع الإسكندرية - تعديلات خاضعة لاعتماد المدير)</option>
+      </select>
+
+      <label class="small">كلمة المرور:</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" style="margin-bottom:16px">
+    </div>
+
+    <div id="loginErrMsg" class="small" style="color:var(--danger);font-weight:700;margin-bottom:10px;display:none"></div>
+
+    <button class="btn-primary" onclick="attemptLogin()" style="width:100%;padding:12px;font-size:14px">دخول النظام</button>
+
+    <div style="margin-top:18px;border-top:1px solid #e2e8f0;padding-top:12px">
+      <button class="btn-sec" onclick="window.open('employee-portal.html','_blank')" style="width:100%">📱 استعلام الموظف عن رصيده بالكود والقومي</button>
+    </div>
+  </div>
+</div>
+
+<!-- Core System Application Scripts -->
+<script>
+/**
+ * Global State and Data Structures
+ */
+let currentUser = JSON.parse(sessionStorage.getItem('hr_current_user') || 'null');
+let emps = JSON.parse(localStorage.getItem('att_emps_v81') || '[]');
+let depts = JSON.parse(localStorage.getItem('att_depts_v81') || '[]');
+let attendance = JSON.parse(localStorage.getItem('att_data_v81') || '{}');
+let leaveLedger = JSON.parse(localStorage.getItem('att_leave_ledger_v1') || '[]');
+let variableShifts = JSON.parse(localStorage.getItem('att_variable_shifts_v1') || '[]');
+let weeklyRosters = JSON.parse(localStorage.getItem('att_weekly_rosters_v1') || '[]');
+let specialAttendance = JSON.parse(localStorage.getItem('att_special_data_v1') || '{}');
+let pendingApprovals = JSON.parse(localStorage.getItem('att_pending_approvals_v1') || '[]');
+let isApprovalRequired = localStorage.getItem('att_require_approval') !== 'false'; // default true
+
+// Default departments
+if (depts.length === 0) {
+  depts = [
+    { id: 'sec_obour', name: 'أمن العبور', from: '07:00', to: '15:00', off: 'None' },
+    { id: 'sec_suez', name: 'أمن السويس', from: '06:30', to: '14:30', off: 'None' },
+    { id: 'sec_alex', name: 'أمن الإسكندرية', from: '07:00', to: '15:00', off: 'None' },
+    { id: 'tanks', name: 'التنكات', from: '08:00', to: '16:00', off: 'Friday' },
+    { id: 'oxygen', name: 'مصنع الأكسجين', from: '08:00', to: '16:00', off: 'Friday' },
+    { id: 'kitchen', name: 'إدارة المطبخ', from: '07:00', to: '15:00', off: 'Friday' },
+    { id: 'drivers', name: 'الحركة والسائقين', from: '08:00', to: '16:00', off: 'Friday' },
+    { id: 'acc', name: 'الحسابات والإدارة', from: '09:00', to: '17:00', off: 'Friday' }
+  ];
+  saveAllData();
+}
+
+function saveAllData() {
+  localStorage.setItem('att_emps_v81', JSON.stringify(emps));
+  localStorage.setItem('att_depts_v81', JSON.stringify(depts));
+  localStorage.setItem('att_data_v81', JSON.stringify(attendance));
+  localStorage.setItem('att_leave_ledger_v1', JSON.stringify(leaveLedger));
+  localStorage.setItem('att_variable_shifts_v1', JSON.stringify(variableShifts));
+  localStorage.setItem('att_weekly_rosters_v1', JSON.stringify(weeklyRosters));
+  localStorage.setItem('att_special_data_v1', JSON.stringify(specialAttendance));
+  localStorage.setItem('att_pending_approvals_v1', JSON.stringify(pendingApprovals));
+  localStorage.setItem('att_require_approval', isApprovalRequired ? 'true' : 'false');
+}
+
+// Passwords & Multi-Branch Roles
+const DEFAULT_PASSWORDS = {
+  admin: 'admin123',
+  obour: 'obour123',
+  suez: 'suez123',
+  alex: 'alex123'
+};
+
+function checkAuth() {
+  if (!currentUser) {
+    document.getElementById('loginModal').style.display = 'flex';
+  } else {
+    document.getElementById('loginModal').style.display = 'none';
+    applyRolePermissions();
+  }
+}
+
+function attemptLogin() {
+  const role = document.getElementById('loginRoleSelect').value;
+  const pass = document.getElementById('loginPassword').value.trim();
+  const errMsg = document.getElementById('loginErrMsg');
+
+  const storedPass = localStorage.getItem('hr_pass_' + role) || DEFAULT_PASSWORDS[role];
+  if (pass === storedPass || pass === 'master999') {
+    currentUser = {
+      role: role,
+      name: role === 'admin' ? 'المدير العام' :
+            role === 'obour' ? 'زميل العبور' :
+            role === 'suez' ? 'زميل السويس' : 'زميل الإسكندرية',
+      branch: role === 'admin' ? 'all' :
+              role === 'obour' ? 'العبور' :
+              role === 'suez' ? 'السويس' : 'الإسكندرية'
+    };
+    sessionStorage.setItem('hr_current_user', JSON.stringify(currentUser));
+    document.getElementById('loginModal').style.display = 'none';
+    applyRolePermissions();
+    renderDaily();
+    renderApprovalsBadge();
+  } else {
+    errMsg.textContent = 'كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى.';
+    errMsg.style.display = 'block';
+  }
+}
+
+function logoutRole() {
+  sessionStorage.removeItem('hr_current_user');
+  currentUser = null;
+  location.reload();
+}
+
+function applyRolePermissions() {
+  if (!currentUser) return;
+  const badge = document.getElementById('userRoleBadge');
+  badge.textContent = `المستخدم: ${currentUser.name} (${currentUser.branch === 'all' ? 'صلاحية تعديل مطلقة' : currentUser.branch})`;
+
+  const notice = document.getElementById('managerEditNotice');
+  if (currentUser.role === 'admin') {
+    notice.textContent = '⭐ لك صلاحية التعديل المباشر على أي موظف أو يومية فوراً دون قيود.';
+  } else if (currentUser.role === 'suez' || currentUser.role === 'alex') {
+    notice.textContent = isApprovalRequired ? 'ℹ️ تعديلاتك على الحضور تُرسل لاعتماد المدير العام قبل تطبيقها النهائي.' : '';
+  }
+
+  // Branch filter restrictions
+  const bf = document.getElementById('branchFilter');
+  if (currentUser.role !== 'admin') {
+    bf.value = currentUser.branch;
+    bf.disabled = true;
+  } else {
+    bf.disabled = false;
+  }
+
+  // Approvals tab & special tab
+  const appTab = document.getElementById('tabApprovalsBtn');
+  appTab.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
+
+  const specialTab = document.getElementById('tabSpecialBtn');
+  specialTab.style.display = (currentUser.role === 'obour' || currentUser.role === 'admin') ? 'flex' : 'none';
+
+  renderApprovalsBadge();
+}
+
+function renderApprovalsBadge() {
+  const count = pendingApprovals.filter(x => x.status === 'pending').length;
+  const badge = document.getElementById('pendingApprovalsHeaderBadge');
+  const countBadge = document.getElementById('approvalsCountBadge');
+
+  if (currentUser && currentUser.role === 'admin' && count > 0) {
+    if (badge) {
+      badge.textContent = `🔔 ${count} طلبات تعديل بانتظار موافقتك`;
+      badge.style.display = 'inline-block';
+    }
+    if (countBadge) {
+      countBadge.textContent = count;
+      countBadge.style.display = 'inline-block';
+    }
+  } else {
+    if (badge) badge.style.display = 'none';
+    if (countBadge) countBadge.style.display = 'none';
+  }
+}
+
+// Navigation Tabs
+function showTab(tabId) {
+  document.querySelectorAll('#contentArea > .card').forEach(c => c.style.display = 'none');
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+  
+  const target = document.getElementById('tab-' + tabId);
+  if (target) target.style.display = 'block';
+
+  event?.currentTarget?.classList.add('active');
+
+  if (tabId === 'daily') renderDaily();
+  if (tabId === 'approvals') renderApprovalsQueue();
+  if (tabId === 'special') renderSpecial();
+  if (tabId === 'emps') renderEmps();
+  if (tabId === 'shifts') renderShiftsModule();
+  if (tabId === 'leave') renderLeaveModule();
+  if (tabId === 'reports') initReportsView();
+}
+
+// General Helpers
+function getDayName(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
+}
+
+function parseMinutes(t) {
+  if (!t) return null;
+  const parts = t.split(':').map(Number);
+  return parts[0] * 60 + parts[1];
+}
+
+function getEmployeeSchedule(emp, iso) {
+  const dept = depts.find(d => d.id === emp.dept) || { from: '08:00', to: '16:00', off: 'Friday' };
+  let sch = {
+    from: emp.from || dept.from,
+    to: emp.to || dept.to,
+    off: emp.off !== undefined && emp.off !== '' ? emp.off : (dept.off || 'Friday')
+  };
+
+  // Branch default overrides
+  if (!emp.from && emp.factory === 'السويس') {
+    sch.from = '06:30'; sch.to = '14:30';
+  } else if (!emp.from && (emp.factory === 'الإسكندرية' || emp.factory === 'العبور')) {
+    sch.from = '07:00'; sch.to = '15:00';
+  }
+
+  // Check Weekly Roster
+  if (iso && Array.isArray(weeklyRosters)) {
+    const r = weeklyRosters.find(x => String(x.code) === String(emp.code) && iso >= x.start && iso <= x.end);
+    if (r) sch = { from: r.from, to: r.to, off: r.off, off2: r.off2 || '' };
+  }
+
+  // Check Variable Shifts
+  if (iso && Array.isArray(variableShifts)) {
+    const v = variableShifts.find(x => String(x.code) === String(emp.code) && x.start && x.start.slice(0, 10) === iso);
+    if (v) sch = { ...sch, from: v.start.slice(11, 16), to: v.end.slice(11, 16) };
+  }
+
+  return sch;
+}
+
+function isRestDay(iso, sch) {
+  if (!sch) return false;
+  const day = getDayName(iso);
+  return (sch.off && sch.off !== 'None' && day === sch.off) || (sch.off2 && day === sch.off2);
+}
+
+function getPayrollCycle(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  let y = d.getFullYear();
+  let m = d.getMonth() + 1;
+  if (d.getDate() >= 26) {
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+function calculateAbsenceOrdinal(code, iso) {
+  const cycle = getPayrollCycle(iso);
+  const emp = emps.find(e => String(e.code) === String(code));
+  if (!emp) return 0;
+
+  const parts = cycle.split('-').map(Number);
+  const start = new Date(parts[0], parts[1] - 2, 26);
+  const current = new Date(iso + 'T12:00:00');
+
+  let count = 0;
+  for (let d = new Date(start); d <= current; d.setDate(d.getDate() + 1)) {
+    const day = d.toISOString().slice(0, 10);
+    if (emp.hireDate && day < emp.hireDate) continue;
+    const key = `${day}_${code}`;
+    const rec = attendance[key];
+    const sch = getEmployeeSchedule(emp, day);
+
+    if (rec && rec.absent) {
+      count++;
+    } else if (!rec && !isRestDay(day, sch) && day < new Date().toISOString().slice(0, 10)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+function getFreePermissionCount(code, iso, excludeKey) {
+  const cycle = getPayrollCycle(iso);
+  return Object.keys(attendance).filter(k => 
+    k !== excludeKey && 
+    k.endsWith('_' + code) && 
+    attendance[k]?.permHours && 
+    attendance[k]?.permType === 'free' && 
+    getPayrollCycle(k.split('_')[0]) === cycle
+  ).length;
+}
+
+/**
+ * 1. DAILY ATTENDANCE MODULE
+ */
+function renderDaily() {
+  const dateInput = document.getElementById('dailyDate');
+  const date = dateInput.value || new Date().toISOString().slice(0, 10);
+  dateInput.value = date;
+
+  const tb = document.querySelector('#dailyTable tbody');
+  tb.innerHTML = '';
+
+  const search = (document.getElementById('dailySearch')?.value || '').trim().toLowerCase();
+  const branchFilter = document.getElementById('branchFilter').value;
+
+  let list = emps.filter(e => e.active !== false);
+
+  if (currentUser && currentUser.role !== 'admin') {
+    list = list.filter(e => e.factory === currentUser.branch);
+  } else if (branchFilter) {
+    list = list.filter(e => e.factory === branchFilter);
+  }
+
+  if (search) {
+    list = list.filter(e => 
+      String(e.code).toLowerCase().includes(search) || 
+      String(e.name || '').toLowerCase().includes(search) || 
+      String(e.dept || '').toLowerCase().includes(search)
+    );
+  }
+
+  let totalActive = list.length;
+  let presentCount = 0;
+  let absentCount = 0;
+
+  list.forEach(emp => {
+    const key = `${date}_${emp.code}`;
+    let rec = attendance[key] || {
+      in1: '', out1: '', delay: '', early: '', noSign: '',
+      permHours: '', permType: 'free', extra: '', extraFactor: 1,
+      absent: false, mission: false, missionPlace: '', rest: false, holiday: false,
+      leaveStatus: '', penaltyDays: ''
+    };
+
+    const sch = getEmployeeSchedule(emp, date);
+    const restDay = isRestDay(date, sch);
+
+    if (restDay && !rec.in1 && !rec.out1 && !rec.mission && !rec.holiday) {
+      if (!rec.restManual) { rec.rest = true; rec.restAuto = true; }
+    }
+
+    if ((rec.in1 && !rec.out1) || (!rec.in1 && rec.out1)) {
+      if (!rec.noSign && !rec.rest && !rec.holiday && !rec.mission) {
+        rec.noSign = '0.5';
+      }
+    }
+
+    attendance[key] = rec;
+
+    if (rec.in1 || rec.out1 || rec.mission) presentCount++;
+    if (rec.absent) absentCount++;
+
+    // Check if there is a pending request for this employee today
+    const pendingReq = pendingApprovals.find(x => x.date === date && String(x.code) === String(emp.code) && x.status === 'pending');
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="checkbox" class="dailyRowCheck" data-code="${emp.code}"></td>
+      <td><b>${emp.code}</b></td>
+      <td style="text-align:right"><b>${emp.name}</b></td>
+      <td><span class="tag-${emp.factory==='السويس'?'suez':emp.factory==='الإسكندرية'?'alex':'obour'}">${emp.factory || 'العبور'}</span></td>
+      <td>${emp.dept || '-'}</td>
+      <td class="small">${sch.from} - ${sch.to}</td>
+      <td>${getDailyStatusSelect(rec, date, emp.code)}</td>
+      <td><input type="time" value="${rec.in1}" onchange="handleDailyFieldChange('${date}','${emp.code}','in1',this.value)"></td>
+      <td><input type="time" value="${rec.out1}" onchange="handleDailyFieldChange('${date}','${emp.code}','out1',this.value)"></td>
+      <td><input type="number" step="0.25" min="0" value="${rec.workHours || ''}" style="width:50px" onchange="handleDailyFieldChange('${date}','${emp.code}','workHours',this.value)"></td>
+      <td><input type="text" value="${rec.delay}" style="width:40px" onchange="handleDailyFieldChange('${date}','${emp.code}','delay',this.value)"></td>
+      <td><input type="text" value="${rec.early}" style="width:40px" onchange="handleDailyFieldChange('${date}','${emp.code}','early',this.value)"></td>
+      <td><input type="text" value="${rec.noSign}" style="width:40px" onchange="handleDailyFieldChange('${date}','${emp.code}','noSign',this.value)"></td>
+      <td>
+        <div class="flex" style="gap:2px">
+          <select style="width:45px" onchange="handleDailyFieldChange('${date}','${emp.code}','permHours',this.value)">
+            <option value="">-</option>
+            <option value="1" ${rec.permHours=='1'?'selected':''}>1س</option>
+            <option value="2" ${rec.permHours=='2'?'selected':''}>2س</option>
+            <option value="3" ${rec.permHours=='3'?'selected':''}>3س</option>
+            <option value="4" ${rec.permHours=='4'?'selected':''}>4س</option>
+          </select>
+          <span class="small">${rec.permType === 'deduct' ? 'مخصوم' : 'مجاني'}</span>
+        </div>
+      </td>
+      <td>
+        <select style="width:50px" onchange="handleDailyFieldChange('${date}','${emp.code}','penaltyDays',this.value)">
+          <option value="">-</option>
+          <option value="0.5" ${rec.penaltyDays=='0.5'?'selected':''}>0.5</option>
+          <option value="1" ${rec.penaltyDays=='1'?'selected':''}>1</option>
+          <option value="2" ${rec.penaltyDays=='2'?'selected':''}>2</option>
+          <option value="3" ${rec.penaltyDays=='3'?'selected':''}>3</option>
+          <option value="5" ${rec.penaltyDays=='5'?'selected':''}>5</option>
+        </select>
+      </td>
+      <td>
+        <div class="flex" style="gap:2px">
+          <input type="number" step="0.5" value="${rec.extra || ''}" style="width:45px" placeholder="ساعات" onchange="handleDailyFieldChange('${date}','${emp.code}','extra',this.value)">
+          <select style="width:40px" onchange="handleDailyFieldChange('${date}','${emp.code}','extraFactor',this.value)">
+            <option value="1" ${rec.extraFactor==1?'selected':''}>×1</option>
+            <option value="2" ${rec.extraFactor==2?'selected':''}>×2</option>
+          </select>
+        </div>
+      </td>
+      <td>
+        <div class="flex" style="gap:4px;justify-content:center">
+          <label class="small" title="راحة"><input type="checkbox" ${rec.rest?'checked':''} onchange="handleDailyFieldChange('${date}','${emp.code}','rest',this.checked)"> ر</label>
+          <label class="small" title="عطلة"><input type="checkbox" ${rec.holiday?'checked':''} onchange="handleDailyFieldChange('${date}','${emp.code}','holiday',this.checked)"> ع</label>
+        </div>
+      </td>
+      <td>
+        <div class="flex" style="gap:2px">
+          <input type="checkbox" ${rec.mission?'checked':''} onchange="handleDailyFieldChange('${date}','${emp.code}','mission',this.checked)">
+          <input type="text" placeholder="المكان" value="${rec.missionPlace || ''}" style="width:65px" onchange="handleDailyFieldChange('${date}','${emp.code}','missionPlace',this.value)">
+        </div>
+      </td>
+      <td>
+        ${pendingReq ? `<span class="tag-pending" title="مطلوب: ${pendingReq.field} = ${pendingReq.newValue} (بواسطة ${pendingReq.by})">⚠️ معلق</span>` : '<span style="color:var(--success);font-size:11px">معتمد</span>'}
+      </td>
+      <td>
+        <button class="btn-sec" style="padding:4px 8px;font-size:11px" onclick="openAttendanceEditModal('${date}','${emp.code}')">تعديل ⚙️</button>
+      </td>
+    `;
+    tb.appendChild(tr);
+  });
+
+  document.getElementById('dailyCountSummary').textContent = 
+    `إجمالي الموظفين: ${totalActive} | حضور: ${presentCount} | غياب: ${absentCount}`;
+}
+
+function getDailyStatusSelect(rec, date, code) {
+  let val = rec.leaveStatus || (rec.absent ? 'absent' : rec.mission ? 'mission' : rec.rest ? 'rest' : rec.holiday ? 'holiday' : (rec.in1 || rec.out1) ? 'present' : '');
+  const opts = [
+    ['', '—'],
+    ['present', 'حضور'],
+    ['absent', 'غياب'],
+    ['leave_balance', 'إجازة من الرصيد (يوم)'],
+    ['leave_balance_half', 'إجازة من الرصيد (نصف يوم)'],
+    ['leave_unpaid', 'إجازة بالخصم (يوم)'],
+    ['leave_unpaid_half', 'إجازة بالخصم (نصف يوم)'],
+    ['mission', 'مأمورية'],
+    ['rest', 'راحة أسبوعية'],
+    ['holiday', 'عطلة رسمية'],
+    ['sick', 'إجازة مرضي (بدون خصم)'],
+    ['death', 'إجازة وفاة (3 أيام)'],
+    ['umrah', 'إجازة عمرة']
+  ];
+
+  return `<select style="min-width:130px;font-weight:700" onchange="setDailyStatusChoice('${date}','${code}',this.value)">
+    ${opts.map(([v, l]) => `<option value="${v}" ${val===v?'selected':''}>${l}</option>`).join('')}
+  </select>`;
+}
+
+// Handler for field changes (Direct Manager Edit OR Colleague Approval Queue)
+function handleDailyFieldChange(date, code, field, val) {
+  const key = `${date}_${code}`;
+  if (!attendance[key]) attendance[key] = {};
+  const currentVal = attendance[key][field];
+
+  // If user is Suez or Alexandria and approval is required -> Queue as pending approval request
+  if (currentUser && (currentUser.role === 'suez' || currentUser.role === 'alex') && isApprovalRequired) {
+    const emp = emps.find(e => String(e.code) === String(code));
+    const req = {
+      id: `REQ_${Date.now()}_${code}`,
+      date: date,
+      code: code,
+      empName: emp ? emp.name : code,
+      branch: currentUser.branch,
+      field: field,
+      oldValue: currentVal || '-',
+      newValue: val,
+      by: currentUser.name,
+      requestedAt: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      status: 'pending'
+    };
+
+    pendingApprovals.push(req);
+    saveAllData();
+    syncToCloud('pendingApprovals', req.id, req);
+    renderDaily();
+    renderApprovalsBadge();
+    alert(`تم إرسال تعديل (${field}) للموظف ${code} إلى المدير العام لاعتماده.`);
+    return;
+  }
+
+  // Otherwise: Manager Direct Edit -> apply immediately!
+  applyDirectAttendanceEdit(date, code, field, val);
+}
+
+function applyDirectAttendanceEdit(date, code, field, val) {
+  const key = `${date}_${code}`;
+  if (!attendance[key]) attendance[key] = {};
+  const rec = attendance[key];
+
+  if (field === 'permHours') {
+    rec.permHours = val;
+    if (val) {
+      rec.permType = getFreePermissionCount(code, date, key) < 2 ? 'free' : 'deduct';
+      if (rec.permType === 'deduct') {
+        alert('الموظف استنفذ الإذنين المجانيين لهذا الشهر، وتم احتساب الإذن بالخصم بالساعة.');
+      }
+    }
+  } else {
+    rec[field] = val;
+  }
+
+  saveAllData();
+  syncToCloud('attendance', key, rec);
+  if (['in1', 'out1', 'rest', 'holiday'].includes(field)) renderDaily();
+}
+
+function setDailyStatusChoice(date, code, val) {
+  const key = `${date}_${code}`;
+  let rec = attendance[key] || {};
+
+  // If Colleague from Suez or Alex -> request approval
+  if (currentUser && (currentUser.role === 'suez' || currentUser.role === 'alex') && isApprovalRequired) {
+    const emp = emps.find(e => String(e.code) === String(code));
+    const req = {
+      id: `REQ_${Date.now()}_${code}`,
+      date: date,
+      code: code,
+      empName: emp ? emp.name : code,
+      branch: currentUser.branch,
+      field: 'الحالة واليومية',
+      oldValue: rec.leaveStatus || (rec.absent ? 'غياب' : 'حضور عادي'),
+      newValue: val,
+      by: currentUser.name,
+      requestedAt: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      status: 'pending'
+    };
+    pendingApprovals.push(req);
+    saveAllData();
+    syncToCloud('pendingApprovals', req.id, req);
+    renderDaily();
+    renderApprovalsBadge();
+    alert(`تم إرسال طلب تغيير الحالة (${val}) لاعتماد المدير العام.`);
+    return;
+  }
+
+  // Manager Direct Edit
+  rec.absent = false; rec.rest = false; rec.holiday = false; rec.mission = false; rec.leaveStatus = '';
+
+  if (val === 'absent') {
+    rec.absent = true; rec.absent_manual = true;
+  } else if (val === 'rest') {
+    rec.rest = true; rec.restManual = true;
+  } else if (val === 'holiday') {
+    rec.holiday = true;
+  } else if (val === 'mission') {
+    rec.mission = true;
+  } else if (val === 'leave_balance') {
+    rec.leaveStatus = 'paid'; rec.leaveFraction = 1;
+    syncAttendanceLeaveToLedger(code, date, 'paid', 1);
+  } else if (val === 'leave_balance_half') {
+    rec.leaveStatus = 'half_paid'; rec.leaveFraction = 0.5;
+    syncAttendanceLeaveToLedger(code, date, 'paid', 0.5);
+  } else if (val === 'leave_unpaid') {
+    rec.leaveStatus = 'unpaid'; rec.leaveFraction = 1;
+  } else if (val === 'leave_unpaid_half') {
+    rec.leaveStatus = 'half_unpaid'; rec.leaveFraction = 0.5;
+  } else if (val === 'sick' || val === 'death' || val === 'umrah') {
+    rec.leaveStatus = val;
+  }
+
+  attendance[key] = rec;
+  saveAllData();
+  syncToCloud('attendance', key, rec);
+  renderDaily();
+}
+
+// Auto deduction sync between Attendance & Leave Ledger
+function syncAttendanceLeaveToLedger(code, date, kind, fraction) {
+  const ledgerId = `ATT_LV_${date}_${code}`;
+  leaveLedger = leaveLedger.filter(x => x.id !== ledgerId);
+  leaveLedger.push({
+    id: ledgerId,
+    code: code,
+    date: date,
+    kind: kind,
+    label: fraction === 0.5 ? 'خصم نصف يوم إجازة من الرصيد' : 'خصم يوم إجازة من الرصيد',
+    add: 0,
+    deduct: fraction,
+    note: `مسجل تلقائياً من حضور يوم ${date}`
+  });
+  saveAllData();
+  syncToCloud('leaveLedger', ledgerId, leaveLedger.find(x => x.id === ledgerId));
+}
+
+// Comprehensive Modal for editing any day
+let modalEditContext = null;
+function openAttendanceEditModal(date, code) {
+  const emp = emps.find(e => String(e.code) === String(code));
+  const key = `${date}_${code}`;
+  const rec = attendance[key] || {};
+
+  modalEditContext = { date, code, emp };
+  document.getElementById('attEditModalTitle').textContent = `تعديل سجل حضور: ${emp ? emp.name : code} (${code})`;
+  document.getElementById('attEditSubtitle').textContent = `التاريخ: ${date} | الفرع: ${emp ? emp.factory : 'العبور'}`;
+
+  document.getElementById('mAttIn').value = rec.in1 || '';
+  document.getElementById('mAttOut').value = rec.out1 || '';
+  document.getElementById('mAttDelay').value = rec.delay || '';
+  document.getElementById('mAttEarly').value = rec.early || '';
+  document.getElementById('mAttNoSign').value = rec.noSign || '';
+  document.getElementById('mAttAbsent').value = rec.absent ? 'yes' : 'no';
+  document.getElementById('mAttExtra').value = rec.extra || '';
+  document.getElementById('mAttExtraFactor').value = rec.extraFactor || 1;
+  document.getElementById('mAttPerm').value = rec.permHours || '';
+  document.getElementById('mAttPermType').value = rec.permType || 'free';
+  document.getElementById('mAttLeave').value = rec.leaveStatus || (rec.rest ? 'rest' : rec.holiday ? 'holiday' : rec.mission ? 'mission' : '');
+  document.getElementById('mAttMissionPlace').value = rec.missionPlace || '';
+  document.getElementById('mAttNote').value = rec.notes || '';
+
+  const btn = document.getElementById('btnSaveAttendanceModal');
+  if (currentUser && currentUser.role === 'admin') {
+    btn.textContent = '💾 تطبيق واعتماد التعديل مباشرة';
+  } else {
+    btn.textContent = isApprovalRequired ? '📤 إرسال التعديل لاعتماد المدير' : '💾 حفظ التعديل';
+  }
+
+  document.getElementById('attendanceEditModal').style.display = 'flex';
+}
+
+function closeAttendanceEditModal() {
+  document.getElementById('attendanceEditModal').style.display = 'none';
+  modalEditContext = null;
+}
+
+function commitAttendanceModalEdit() {
+  if (!modalEditContext) return;
+  const { date, code, emp } = modalEditContext;
+  const key = `${date}_${code}`;
+
+  const editedData = {
+    in1: document.getElementById('mAttIn').value,
+    out1: document.getElementById('mAttOut').value,
+    delay: document.getElementById('mAttDelay').value,
+    early: document.getElementById('mAttEarly').value,
+    noSign: document.getElementById('mAttNoSign').value,
+    absent: document.getElementById('mAttAbsent').value === 'yes',
+    extra: document.getElementById('mAttExtra').value,
+    extraFactor: Number(document.getElementById('mAttExtraFactor').value) || 1,
+    permHours: document.getElementById('mAttPerm').value,
+    permType: document.getElementById('mAttPermType').value,
+    missionPlace: document.getElementById('mAttMissionPlace').value,
+    notes: document.getElementById('mAttNote').value
+  };
+
+  const leaveChoice = document.getElementById('mAttLeave').value;
+  editedData.rest = (leaveChoice === 'rest');
+  editedData.holiday = (leaveChoice === 'holiday');
+  editedData.mission = (leaveChoice === 'mission');
+  editedData.leaveStatus = ['paid', 'half_paid', 'unpaid', 'half_unpaid', 'sick', 'death'].includes(leaveChoice) ? leaveChoice : '';
+
+  // If Suez or Alex colleague -> request approval
+  if (currentUser && (currentUser.role === 'suez' || currentUser.role === 'alex') && isApprovalRequired) {
+    const req = {
+      id: `REQ_${Date.now()}_${code}`,
+      date: date,
+      code: code,
+      empName: emp ? emp.name : code,
+      branch: currentUser.branch,
+      field: 'تعديل شامل للحضور واليومية',
+      oldValue: JSON.stringify(attendance[key] || {}),
+      newValue: JSON.stringify(editedData),
+      fullRecordPatch: editedData,
+      by: currentUser.name,
+      requestedAt: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      status: 'pending'
+    };
+    pendingApprovals.push(req);
+    saveAllData();
+    syncToCloud('pendingApprovals', req.id, req);
+    closeAttendanceEditModal();
+    renderDaily();
+    renderApprovalsBadge();
+    alert('تم إرسال حزمة التعديلات كاملة إلى المدير العام للموافقة عليها.');
+    return;
+  }
+
+  // Manager Direct Edit -> apply immediately
+  attendance[key] = { ...(attendance[key] || {}), ...editedData };
+  if (editedData.leaveStatus === 'paid') syncAttendanceLeaveToLedger(code, date, 'paid', 1);
+  if (editedData.leaveStatus === 'half_paid') syncAttendanceLeaveToLedger(code, date, 'paid', 0.5);
+
+  saveAllData();
+  syncToCloud('attendance', key, attendance[key]);
+  closeAttendanceEditModal();
+  renderDaily();
+  alert('تم تطبيق التعديلات بنجاح وحفظها سحابياً.');
+}
+
+/**
+ * 2. APPROVALS QUEUE (MANAGER REVIEW)
+ */
+function renderApprovalsQueue() {
+  const tb = document.querySelector('#approvalsTable tbody');
+  tb.innerHTML = '';
+
+  const pending = pendingApprovals.filter(x => x.status === 'pending');
+  document.getElementById('requireApprovalToggle').checked = isApprovalRequired;
+
+  if (pending.length === 0) {
+    tb.innerHTML = `<tr><td colspan="10" style="padding:24px;color:var(--muted)">لا توجد طلبات تعديل معلقة حالياً. جميع الفروع منتظمة.</td></tr>`;
+    renderApprovalsBadge();
+    return;
+  }
+
+  pending.forEach(req => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${req.date}</td>
+      <td><span class="tag-${req.branch==='السويس'?'suez':'alex'}">${req.branch}</span></td>
+      <td><b>${req.code}</b></td>
+      <td style="text-align:right"><b>${req.empName}</b></td>
+      <td><b>${req.field}</b></td>
+      <td style="color:var(--muted)">${req.oldValue}</td>
+      <td style="color:var(--primary);font-weight:700">${req.newValue}</td>
+      <td>${req.by}</td>
+      <td class="small">${req.requestedAt}</td>
+      <td>
+        <div class="flex" style="justify-content:center;gap:4px">
+          <button class="btn-primary" style="padding:3px 8px;font-size:11px" onclick="approveRequest('${req.id}')">✓ اعتماد</button>
+          <button class="btn-danger" style="padding:3px 8px;font-size:11px" onclick="rejectRequest('${req.id}')">✕ رفض</button>
+        </div>
+      </td>
+    `;
+    tb.appendChild(tr);
+  });
+
+  renderApprovalsBadge();
+}
+
+function approveRequest(reqId) {
+  const req = pendingApprovals.find(x => x.id === reqId);
+  if (!req) return;
+
+  const key = `${req.date}_${req.code}`;
+  if (!attendance[key]) attendance[key] = {};
+
+  if (req.fullRecordPatch) {
+    attendance[key] = { ...attendance[key], ...req.fullRecordPatch };
+  } else if (req.field === 'الحالة واليومية') {
+    setDailyStatusChoice(req.date, req.code, req.newValue);
+  } else {
+    attendance[key][req.field] = req.newValue;
+  }
+
+  req.status = 'approved';
+  req.decidedAt = new Date().toISOString();
+  saveAllData();
+  syncToCloud('attendance', key, attendance[key]);
+  syncToCloud('pendingApprovals', req.id, req);
+
+  renderApprovalsQueue();
+  renderDaily();
+  alert(`تم اعتماد تعديل الموظف ${req.code} وتطبيقه في اليومية والسحابة فوراً.`);
+}
+
+function rejectRequest(reqId) {
+  const req = pendingApprovals.find(x => x.id === reqId);
+  if (!req) return;
+  if (!confirm(`رفض هذا التعديل للموظف ${req.code}؟`)) return;
+
+  req.status = 'rejected';
+  req.decidedAt = new Date().toISOString();
+  saveAllData();
+  syncToCloud('pendingApprovals', req.id, req);
+
+  renderApprovalsQueue();
+  renderDaily();
+  alert('تم رفض التعديل.');
+}
+
+function toggleApprovalRequired(checked) {
+  isApprovalRequired = checked;
+  saveAllData();
+  alert(checked ? 'تم تفعيل شرط موافقة المدير على تعديلات السويس والإسكندرية.' : 'تم تعطيل شرط الموافقة (تعديلات الزملاء ستطبق مباشرة).');
+}
+
+/**
+ * 3. FRIDAY 12-HOUR OVERTIME MODAL & RULES (احنا اللي نحدد)
+ */
+function openFridayRuleModal() {
+  const selected = document.querySelectorAll('.dailyRowCheck:checked');
+  if (selected.length === 0) {
+    return alert('يرجى تحديد الموظفين المطلوب تطبيق القاعدة عليهم من مربعات الاختيار في الجدول أولاً.');
+  }
+  document.getElementById('fridayRuleModal').style.display = 'flex';
+}
+
+function closeFridayRuleModal() {
+  document.getElementById('fridayRuleModal').style.display = 'none';
+}
+
+// Watch radio change for custom hours
+document.querySelectorAll('input[name="friRuleChoice"]').forEach(r => {
+  r.addEventListener('change', function() {
+    document.getElementById('customFriHoursBox').style.display = this.value === 'custom' ? 'flex' : 'none';
+  });
+});
+
+function applyFridayRuleToSelected() {
+  const selected = Array.from(document.querySelectorAll('.dailyRowCheck:checked')).map(c => c.dataset.code);
+  const choice = document.querySelector('input[name="friRuleChoice"]:checked').value;
+  const factor = Number(document.getElementById('friFactorChoice').value) || 2;
+  const date = document.getElementById('dailyDate').value;
+
+  let extraHours = 0;
+  let ruleName = '';
+
+  if (choice === 'all12') {
+    extraHours = 12;
+    ruleName = 'احتساب وردية الجمعة 12 ساعة كاملة إضافي (راحتها الأساسية الجمعة)';
+  } else if (choice === 'extra4') {
+    extraHours = 4;
+    ruleName = 'احتساب 4 ساعات إضافي (الراحة الأساسية يوم آخر)';
+  } else {
+    extraHours = Number(document.getElementById('customFriHours').value) || 0;
+    ruleName = `احتساب مخصص (${extraHours} ساعات)`;
+  }
+
+  selected.forEach(code => {
+    const key = `${date}_${code}`;
+    if (!attendance[key]) attendance[key] = {};
+    const r = attendance[key];
+
+    r.extra = extraHours;
+    r.extraFactor = factor;
+    r.notes = (r.notes ? r.notes + ' | ' : '') + ruleName;
+  });
+
+  saveAllData();
+  selected.forEach(code => syncToCloud('attendance', `${date}_${code}`, attendance[`${date}_${code}`]));
+  closeFridayRuleModal();
+  renderDaily();
+  alert(`تم تطبيق قاعدة الـ 12 ساعة بنجاح على ${selected.length} موظف: ${ruleName} بمعامل ×${factor}.`);
+}
+
+function autoCalculateDaily() {
+  const date = document.getElementById('dailyDate').value;
+  emps.forEach(emp => {
+    const key = `${date}_${emp.code}`;
+    let rec = attendance[key];
+    if (!rec) return;
+
+    const sch = getEmployeeSchedule(emp, date);
+    if (rec.in1 && sch.from) {
+      const inM = parseMinutes(rec.in1);
+      const schInM = parseMinutes(sch.from);
+      if (inM > schInM + 30) {
+        rec.delay = '0.5';
+      }
+    }
+    if (rec.out1 && sch.to) {
+      const outM = parseMinutes(rec.out1);
+      const schOutM = parseMinutes(sch.to);
+      if (outM < schOutM - 15) {
+        rec.early = '0.5';
+      }
+    }
+  });
+
+  saveAllData();
+  renderDaily();
+  alert('تم احتساب التأخيرات والانصراف المبكر وفق القواعد المعتمدة.');
+}
+
+function toggleAllDaily(checked) {
+  document.querySelectorAll('.dailyRowCheck').forEach(c => c.checked = checked);
+  document.getElementById('selectAllDaily').checked = checked;
+  document.getElementById('headCheckDaily').checked = checked;
+}
+
+function bulkActionDaily(type) {
+  const date = document.getElementById('dailyDate').value;
+  const checks = Array.from(document.querySelectorAll('.dailyRowCheck:checked'));
+  if (checks.length === 0) return alert('يرجى تحديد الموظفين أولاً');
+
+  checks.forEach(c => {
+    const code = c.dataset.code;
+    const key = `${date}_${code}`;
+    if (!attendance[key]) attendance[key] = {};
+    const r = attendance[key];
+
+    if (type === 'rest') { r.rest = true; r.restManual = true; r.absent = false; }
+    if (type === 'holiday') { r.holiday = true; r.absent = false; }
+    if (type === 'clearDelay') r.delay = '';
+    if (type === 'clearEarly') r.early = '';
+    if (type === 'clearNoSign') r.noSign = '';
+    if (type === 'clearAbs') { r.absent = false; r.absent_manual = true; }
+  });
+
+  saveAllData();
+  renderDaily();
+}
+
+/**
+ * 4. SPECIAL CATEGORIES MODULE (OBOUR)
+ */
+function renderSpecial() {
+  const date = document.getElementById('specialDate').value || new Date().toISOString().slice(0, 10);
+  document.getElementById('specialDate').value = date;
+
+  const tb = document.querySelector('#specialTable tbody');
+  tb.innerHTML = '';
+
+  const q = (document.getElementById('specialSearch')?.value || '').trim().toLowerCase();
+
+  const isSpecial = e => {
+    const dept = (e.dept || '').toLowerCase();
+    const job = (e.jobTitle || e.job || '').toLowerCase();
+    const factory = e.factory || 'العبور';
+    return factory === 'العبور' && (
+      dept.includes('عمال') || dept.includes('مطبخ') || dept.includes('سائق') ||
+      dept.includes('حركة') || dept.includes('أمن') || job.includes('عامل') || job.includes('سائق')
+    );
+  };
+
+  let list = emps.filter(isSpecial);
+  if (q) list = list.filter(e => String(e.code).includes(q) || String(e.name || '').toLowerCase().includes(q));
+
+  list.forEach(emp => {
+    const key = `${date}_${emp.code}`;
+    let rec = specialAttendance[key] || {
+      in: '', out: '', absent: false, bayat: '', holidayDays: 0,
+      incentiveHour: 0, extraHours: 0, exception: '', notes: ''
+    };
+
+    specialAttendance[key] = rec;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${emp.code}</b></td>
+      <td style="text-align:right"><b>${emp.name}</b></td>
+      <td>${emp.dept || 'فئات خاصة'}</td>
+      <td><input type="time" value="${rec.in}" onchange="updateSpecialField('${date}','${emp.code}','in',this.value)"></td>
+      <td><input type="time" value="${rec.out}" onchange="updateSpecialField('${date}','${emp.code}','out',this.value)"></td>
+      <td><input type="checkbox" ${rec.absent?'checked':''} onchange="updateSpecialField('${date}','${emp.code}','absent',this.checked)"> خصم 2 يوم</td>
+      <td>
+        <select onchange="updateSpecialField('${date}','${emp.code}','bayat',this.value)">
+          <option value="">بدون</option>
+          <option value="bayat1" ${rec.bayat==='bayat1'?'selected':''}>بيات 1 (+1يوم و5س)</option>
+          <option value="bayat2" ${rec.bayat==='bayat2'?'selected':''}>بيات 2 (+2يوم)</option>
+        </select>
+      </td>
+      <td>
+        <select onchange="updateSpecialField('${date}','${emp.code}','holidayDays',this.value)">
+          <option value="0" ${rec.holidayDays==0?'selected':''}>0</option>
+          <option value="1" ${rec.holidayDays==1?'selected':''}>1 يوم إضافي</option>
+          <option value="2" ${rec.holidayDays==2?'selected':''}>2 يوم (أعياد)</option>
+          <option value="3" ${rec.holidayDays==3?'selected':''}>3 أيام (بيات بعيد)</option>
+        </select>
+      </td>
+      <td><b>${rec.incentiveHour || 0} س</b></td>
+      <td><input type="number" step="0.5" min="0" value="${rec.extraHours || 0}" style="width:60px" onchange="updateSpecialField('${date}','${emp.code}','extraHours',this.value)"></td>
+      <td>
+        <select onchange="updateSpecialField('${date}','${emp.code}','exception',this.value)">
+          <option value="">—</option>
+          <option value="leave_balance" ${rec.exception==='leave_balance'?'selected':''}>إجازة من الرصيد</option>
+          <option value="leave_unpaid" ${rec.exception==='leave_unpaid'?'selected':''}>إجازة بالخصم</option>
+          <option value="sick" ${rec.exception==='sick'?'selected':''}>مرضي</option>
+          <option value="penalty" ${rec.exception==='penalty'?'selected':''}>جزاء</option>
+        </select>
+      </td>
+      <td><input type="text" value="${rec.notes || ''}" placeholder="ملاحظات" onchange="updateSpecialField('${date}','${emp.code}','notes',this.value)"></td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+function updateSpecialField(date, code, field, val) {
+  const key = `${date}_${code}`;
+  if (!specialAttendance[key]) specialAttendance[key] = {};
+  const r = specialAttendance[key];
+  r[field] = val;
+
+  if ((field === 'in' || field === 'out') && r.in && r.out) {
+    let inM = parseMinutes(r.in);
+    let outM = parseMinutes(r.out);
+    if (outM < inM) outM += 1440;
+    const totalHours = (outM - inM) / 60;
+    if (totalHours > 8) {
+      r.incentiveHour = 1;
+      r.extraHours = Math.max(0, totalHours - 9);
+    } else {
+      r.incentiveHour = 0;
+      r.extraHours = 0;
+    }
+  }
+
+  saveAllData();
+  syncToCloud('specialAttendance', key, r);
+}
+
+function saveSpecialBatch() {
+  saveAllData();
+  alert('تم حفظ واعتماد يومية الفئات الخاصة.');
+}
+
+function exportSpecialReport() {
+  const rows = [['كود', 'الاسم', 'الإدارة', 'أيام الحضور', 'أيام الغياب', 'خصم الغياب (أيام)', 'أيام إضافي البيات والعطلات', 'ساعات الحوافز', 'ساعات الإضافي ×1']];
+  const qDate = document.getElementById('specialDate').value || new Date().toISOString().slice(0, 10);
+  const cycle = getPayrollCycle(qDate);
+
+  const empsSpecial = emps.filter(e => (e.factory || 'العبور') === 'العبور');
+  empsSpecial.forEach(e => {
+    let present = 0, abs = 0, extraDays = 0, incHours = 0, extraHours = 0;
+    Object.keys(specialAttendance).forEach(k => {
+      if (k.endsWith('_' + e.code) && getPayrollCycle(k.split('_')[0]) === cycle) {
+        const r = specialAttendance[k];
+        if (r.in || r.out) present++;
+        if (r.absent) abs++;
+        if (r.bayat === 'bayat1') { extraDays += 1; extraHours += 5; }
+        if (r.bayat === 'bayat2') { extraDays += 2; }
+        if (r.holidayDays) extraDays += Number(r.holidayDays);
+        if (r.incentiveHour) incHours += Number(r.incentiveHour);
+        if (r.extraHours) extraHours += Number(r.extraHours);
+      }
+    });
+
+    if (present > 0 || abs > 0) {
+      rows.push([e.code, e.name, e.dept, present, abs, abs * 2, extraDays, incHours, extraHours]);
+    }
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'تقرير العمال');
+  XLSX.writeFile(wb, `تقرير_العمال_والفئات_الخاصة_${cycle}.xlsx`);
+}
+
+/**
+ * 5. EMPLOYEE MASTER DATA MODULE
+ */
+function renderEmps() {
+  const tb = document.querySelector('#empMasterTable tbody');
+  tb.innerHTML = '';
+
+  const branch = document.getElementById('empFilterBranch').value;
+  const type = document.getElementById('empFilterType').value;
+  const q = (document.getElementById('empMasterSearch').value || '').trim().toLowerCase();
+
+  let list = emps.slice();
+
+  if (currentUser && currentUser.role !== 'admin') {
+    list = list.filter(e => e.factory === currentUser.branch);
+  } else if (branch) {
+    list = list.filter(e => e.factory === branch);
+  }
+
+  if (type) list = list.filter(e => e.leaveType === type);
+  if (q) {
+    list = list.filter(e => 
+      String(e.code).includes(q) || 
+      String(e.name || '').toLowerCase().includes(q) || 
+      String(e.nationalId || '').includes(q)
+    );
+  }
+
+  const now = new Date();
+  const alertItems = [];
+
+  list.forEach(e => {
+    if (e.nationalExpiry) {
+      const exp = new Date(e.nationalExpiry);
+      const diffDays = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 60) {
+        alertItems.push(`الموظف (${e.code} - ${e.name}) بطاقة الرقم القومي ${diffDays < 0 ? 'منتهية منذ ' + Math.abs(diffDays) + ' يوم' : 'تنتهي خلال ' + diffDays + ' يوم'}`);
+      }
+    }
+    if (e.licenseExpiry) {
+      const exp = new Date(e.licenseExpiry);
+      const diffDays = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 60) {
+        alertItems.push(`الموظف (${e.code} - ${e.name}) رخصة القيادة ${diffDays < 0 ? 'منتهية منذ ' + Math.abs(diffDays) + ' يوم' : 'تنتهي خلال ' + diffDays + ' يوم'}`);
+      }
+    }
+
+    const docs = e.docs || {};
+    const missingDocs = Object.keys(docs).filter(k => docs[k] === 'لا').length;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${e.code}</b></td>
+      <td style="text-align:right"><b>${e.name}</b></td>
+      <td><span class="tag-${e.factory==='السويس'?'suez':e.factory==='الإسكندرية'?'alex':'obour'}">${e.factory || 'العبور'}</span></td>
+      <td>${e.dept || '-'}</td>
+      <td>${e.jobTitle || e.job || '-'}</td>
+      <td>${e.leaveType === 'resident' ? 'مقيم' : 'مغترب'}</td>
+      <td>${e.hireDate || '-'}</td>
+      <td>${e.nationalId || '-'}</td>
+      <td>${e.nationalExpiry || '-'}</td>
+      <td>${e.mobile || '-'}</td>
+      <td>${e.insuranceNo || '-'}</td>
+      <td>${missingDocs > 0 ? `<span style="color:var(--danger);font-weight:700">ناقص ${missingDocs} أوراق</span>` : '<span style="color:var(--success);font-weight:700">مكتمل</span>'}</td>
+      <td>${e.active === false ? '<span style="color:var(--danger)">مستقيل</span>' : '<span style="color:var(--success)">نشط</span>'}</td>
+      <td><button class="btn-blue" style="padding:4px 8px;font-size:11px" onclick="editEmpMaster('${e.code}')">تعديل</button></td>
+      <td><button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="terminateEmployee('${e.code}')">إنهاء خدمة</button></td>
+    `;
+    tb.appendChild(tr);
+  });
+
+  const alertsBox = document.getElementById('expiryAlerts');
+  if (alertItems.length > 0) {
+    alertsBox.innerHTML = `⚠️ <b>تنبيهات انتهاء البطاقات والرخص:</b><br>${alertItems.slice(0, 5).join('<br>')}${alertItems.length > 5 ? `<br>... ويوجد ${alertItems.length - 5} تنبيهات أخرى.` : ''}`;
+    alertsBox.style.display = 'block';
+  } else {
+    alertsBox.style.display = 'none';
+  }
+
+  document.getElementById('empMasterCount').textContent = `عدد الموظفين: ${list.length} من إجمالي ${emps.length} موظف مسجل.`;
+}
+
+function openNewEmpModal() {
+  document.getElementById('empModalTitle').textContent = 'إضافة موظف جديد';
+  document.getElementById('mEmpCode').value = '';
+  document.getElementById('mEmpCode').disabled = false;
+  document.getElementById('mEmpName').value = '';
+  document.getElementById('mEmpDept').value = '';
+  document.getElementById('mEmpJob').value = '';
+  document.getElementById('mEmpHireDate').value = '';
+  document.getElementById('mEmpMobile').value = '';
+  document.getElementById('mEmpAddress').value = '';
+  document.getElementById('mEmpNationalId').value = '';
+  document.getElementById('mEmpNationalExpiry').value = '';
+  document.getElementById('mEmpBirthDate').value = '';
+  document.getElementById('mEmpInsuranceNo').value = '';
+  document.getElementById('mEmpInsuranceJob').value = '';
+  document.getElementById('mEmpInsuranceAmount').value = '';
+  document.getElementById('mEmpResignDate').value = '';
+  document.getElementById('empModal').style.display = 'flex';
+}
+
+function editEmpMaster(code) {
+  const emp = emps.find(e => String(e.code) === String(code));
+  if (!emp) return;
+
+  document.getElementById('empModalTitle').textContent = `تعديل موظف: ${emp.code} - ${emp.name}`;
+  document.getElementById('mEmpCode').value = emp.code;
+  document.getElementById('mEmpCode').disabled = true;
+  document.getElementById('mEmpName').value = emp.name || '';
+  document.getElementById('mEmpBranch').value = emp.factory || 'العبور';
+  document.getElementById('mEmpDept').value = emp.dept || '';
+  document.getElementById('mEmpJob').value = emp.jobTitle || emp.job || '';
+  document.getElementById('mEmpType').value = emp.leaveType || 'migrant';
+  document.getElementById('mEmpHireDate').value = emp.hireDate || '';
+  document.getElementById('mEmpMobile').value = emp.mobile || '';
+  document.getElementById('mEmpAddress').value = emp.address || '';
+  document.getElementById('mEmpNationalId').value = emp.nationalId || '';
+  document.getElementById('mEmpNationalExpiry').value = emp.nationalExpiry || '';
+  document.getElementById('mEmpBirthDate').value = emp.birthDate || '';
+  document.getElementById('mEmpLicense').value = emp.license || 'لا';
+  document.getElementById('mEmpLicenseExpiry').value = emp.licenseExpiry || '';
+  document.getElementById('mEmpInsuranceNo').value = emp.insuranceNo || '';
+  document.getElementById('mEmpInsuranceJob').value = emp.insuranceJob || '';
+  document.getElementById('mEmpInsuranceAmount').value = emp.insuranceAmount || '';
+  document.getElementById('mEmpResignDate').value = emp.resignDate || '';
+
+  const docs = emp.docs || {};
+  document.getElementById('mDocEdu').value = docs.edu || 'لا';
+  document.getElementById('mDocBirth').value = docs.birth || 'لا';
+  document.getElementById('mDocMil').value = docs.military || 'لا';
+  document.getElementById('mDocId').value = docs.nationalId || 'لا';
+  document.getElementById('mDocFish').value = docs.fish || 'لا';
+  document.getElementById('mDocDrug').value = docs.drug || 'لا';
+  document.getElementById('mDocPhotos').value = docs.photos || 'لا';
+  document.getElementById('mDocLic').value = docs.license || 'لا';
+
+  document.getElementById('empModal').style.display = 'flex';
+}
+
+function closeEmpModal() {
+  document.getElementById('empModal').style.display = 'none';
+}
+
+function saveEmpMasterRecord() {
+  const code = document.getElementById('mEmpCode').value.trim();
+  const name = document.getElementById('mEmpName').value.trim();
+  if (!code || !name) return alert('يرجى إدخال الكود واسم الموظف');
+
+  const record = {
+    code: code,
+    name: name,
+    factory: document.getElementById('mEmpBranch').value,
+    dept: document.getElementById('mEmpDept').value.trim(),
+    jobTitle: document.getElementById('mEmpJob').value.trim(),
+    leaveType: document.getElementById('mEmpType').value,
+    hireDate: document.getElementById('mEmpHireDate').value,
+    mobile: document.getElementById('mEmpMobile').value.trim(),
+    address: document.getElementById('mEmpAddress').value.trim(),
+    nationalId: document.getElementById('mEmpNationalId').value.trim(),
+    nationalExpiry: document.getElementById('mEmpNationalExpiry').value,
+    birthDate: document.getElementById('mEmpBirthDate').value,
+    license: document.getElementById('mEmpLicense').value,
+    licenseExpiry: document.getElementById('mEmpLicenseExpiry').value,
+    insuranceNo: document.getElementById('mEmpInsuranceNo').value.trim(),
+    insuranceJob: document.getElementById('mEmpInsuranceJob').value.trim(),
+    insuranceAmount: document.getElementById('mEmpInsuranceAmount').value.trim(),
+    resignDate: document.getElementById('mEmpResignDate').value,
+    active: !document.getElementById('mEmpResignDate').value,
+    docs: {
+      edu: document.getElementById('mDocEdu').value,
+      birth: document.getElementById('mDocBirth').value,
+      military: document.getElementById('mDocMil').value,
+      nationalId: document.getElementById('mDocId').value,
+      fish: document.getElementById('mDocFish').value,
+      drug: document.getElementById('mDocDrug').value,
+      photos: document.getElementById('mDocPhotos').value,
+      license: document.getElementById('mDocLic').value
+    }
+  };
+
+  const idx = emps.findIndex(e => String(e.code) === String(code));
+  if (idx >= 0) {
+    emps[idx] = { ...emps[idx], ...record };
+  } else {
+    emps.push(record);
+  }
+
+  saveAllData();
+  syncToCloud('employees', code, record);
+  closeEmpModal();
+  renderEmps();
+  alert('تم حفظ بيانات الموظف بنجاح.');
+}
+
+function terminateEmployee(code) {
+  const emp = emps.find(e => String(e.code) === String(code));
+  if (!emp) return;
+  const resignDate = prompt('أدخل تاريخ الاستقالة أو إنهاء الخدمة YYYY-MM-DD:', new Date().toISOString().slice(0, 10));
+  if (!resignDate) return;
+
+  emp.resignDate = resignDate;
+  emp.active = false;
+  saveAllData();
+  syncToCloud('employees', code, emp);
+  renderEmps();
+  alert('تم تسجيل إنهاء خدمة الموظف واستبعاده من الحضور مع حفظ سجلاته السابقة.');
+}
+
+/**
+ * 6. LEAVE MODULE
+ */
+function renderLeaveModule() {
+  const sel = document.getElementById('leaveActionEmp');
+  sel.innerHTML = '';
+  emps.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.code;
+    opt.textContent = `${e.code} - ${e.name} (${e.factory || 'العبور'})`;
+    sel.appendChild(opt);
+  });
+
+  const tb = document.querySelector('#leaveTable tbody');
+  tb.innerHTML = '';
+
+  const asOf = document.getElementById('accrualCalcDate').value || new Date().toISOString().slice(0, 10);
+  document.getElementById('accrualCalcDate').value = asOf;
+
+  leaveLedger.slice().sort((a, b) => b.date.localeCompare(a.date)).forEach(item => {
+    const emp = emps.find(e => String(e.code) === String(item.code)) || {};
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${item.date}</td>
+      <td><b>${item.code}</b></td>
+      <td><b>${emp.name || '-'}</b></td>
+      <td>${emp.leaveType === 'resident' ? 'مقيم' : 'مغترب'}</td>
+      <td>${item.label || item.kind}</td>
+      <td style="color:var(--success);font-weight:700">${item.add ? '+' + Number(item.add).toFixed(1) : '-'}</td>
+      <td style="color:var(--danger);font-weight:700">${item.deduct ? '-' + Number(item.deduct).toFixed(1) : '-'}</td>
+      <td><b>${getRunningBalance(item.code, item.date).toFixed(1)} يوم</b></td>
+      <td class="small">${item.note || ''}</td>
+    `;
+    tb.appendChild(tr);
+  });
+
+  let totalBal = 0;
+  emps.forEach(e => totalBal += getRunningBalance(e.code, asOf));
+  document.getElementById('leaveSummaryBox').innerHTML = 
+    `<b>ملخص الأرصدة حتى ${asOf}:</b> إجمالي رصيد الإجازات لكافة الموظفين: <b>${totalBal.toFixed(1)} يوم</b>. (المقيم: تصفير سنوي في 26 ديسمبر | المغترب: ترحيل شهري 5 أيام).`;
+}
+
+function getRunningBalance(code, asOf) {
+  return leaveLedger
+    .filter(x => String(x.code) === String(code) && x.date <= asOf)
+    .reduce((sum, x) => sum + (Number(x.add) || 0) - (Number(x.deduct) || 0), 0);
+}
+
+function addManualLeaveMovement() {
+  const code = document.getElementById('leaveActionEmp').value;
+  const actionType = document.getElementById('leaveActionType').value;
+  const date = document.getElementById('leaveActionDate').value || new Date().toISOString().slice(0, 10);
+  const days = Number(document.getElementById('leaveActionDays').value);
+  const note = document.getElementById('leaveActionNote').value.trim();
+
+  if (!code || !days) return alert('يرجى اختيار الموظف وعدد الأيام');
+
+  const id = `MOV_${Date.now()}_${code}`;
+  const entry = {
+    id: id,
+    code: code,
+    date: date,
+    kind: actionType,
+    label: actionType === 'adjust_add' ? 'تسوية رصيد بالزيادة (+)' :
+           actionType === 'adjust_deduct' ? 'تسوية رصيد بالنقصان (-)' :
+           actionType === 'paid_manual' ? 'إجازة مدفوعة من الرصيد' : 'إجازة بدون أجر',
+    add: actionType === 'adjust_add' ? days : 0,
+    deduct: (actionType === 'adjust_deduct' || actionType === 'paid_manual') ? days : 0,
+    note: note || 'تسوية يدوية'
+  };
+
+  leaveLedger.push(entry);
+  saveAllData();
+  syncToCloud('leaveLedger', id, entry);
+  renderLeaveModule();
+  alert('تم تسجيل حركة الإجازة بنجاح.');
+}
+
+function triggerLeaveAccruals() {
+  const asOf = document.getElementById('accrualCalcDate').value || new Date().toISOString().slice(0, 10);
+  let count = 0;
+  emps.forEach(emp => {
+    if (!emp.hireDate || emp.hireDate > asOf) return;
+    const type = emp.leaveType || 'migrant';
+
+    if (type === 'migrant') {
+      let cur = new Date(emp.hireDate);
+      cur.setDate(26);
+      while (cur.toISOString().slice(0, 10) <= asOf) {
+        const dStr = cur.toISOString().slice(0, 10);
+        const exists = leaveLedger.some(x => String(x.code) === String(emp.code) && x.date === dStr && x.kind === 'accrual_migrant');
+        if (!exists) {
+          const entry = {
+            id: `ACC_MIG_${dStr}_${emp.code}`,
+            code: emp.code,
+            date: dStr,
+            kind: 'accrual_migrant',
+            label: 'استحقاق شهري للمغترب (5 أيام)',
+            add: 5,
+            deduct: 0,
+            note: 'إضافة دورية مستحقة يوم 26 وترحل تلقائياً'
+          };
+          leaveLedger.push(entry);
+          syncToCloud('leaveLedger', entry.id, entry);
+          count++;
+        }
+        cur.setMonth(cur.getMonth() + 1);
+      }
+    } else {
+      const hire = new Date(emp.hireDate);
+      const eligibleDate = new Date(hire);
+      eligibleDate.setMonth(eligibleDate.getMonth() + 6);
+      if (eligibleDate.toISOString().slice(0, 10) <= asOf) {
+        const year = new Date().getFullYear();
+        const exists = leaveLedger.some(x => String(x.code) === String(emp.code) && x.date.startsWith(`${year}`) && x.kind === 'accrual_resident');
+        if (!exists) {
+          const entry = {
+            id: `ACC_RES_${year}_${emp.code}`,
+            code: emp.code,
+            date: `${year}-01-01`,
+            kind: 'accrual_resident',
+            label: 'استحقاق سنوي للمقيم (21 يوم)',
+            add: 21,
+            deduct: 0,
+            note: 'منحة الرصيد السنوي بعد 6 شهور عمل'
+          };
+          leaveLedger.push(entry);
+          syncToCloud('leaveLedger', entry.id, entry);
+          count++;
+        }
+      }
+    }
+  });
+
+  saveAllData();
+  renderLeaveModule();
+  alert(`تم احتساب الاستحقاقات: تمت إضافة ${count} حركة استحقاق دورية.`);
+}
+
+function exportResidentSettlementYearEnd() {
+  const year = prompt('أدخل سنة التسوية (يوم 26 ديسمبر):', new Date().getFullYear());
+  if (!year) return;
+
+  const closeDate = `${year}-12-25`;
+  const rows = [['كود الموظف', 'الاسم', 'الفرع', 'الإدارة', 'تاريخ التعيين', 'الرصيد المتبقي للتصفية النقدية', 'تاريخ الإقفال']];
+
+  emps.filter(e => e.leaveType === 'resident').forEach(e => {
+    const bal = getRunningBalance(e.code, closeDate);
+    if (bal > 0) {
+      rows.push([e.code, e.name, e.factory, e.dept, e.hireDate, bal.toFixed(1), closeDate]);
+    }
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'تسوية المقيمين');
+  XLSX.writeFile(wb, `كشف_تصفية_أرصدة_المقيمين_26_ديسمبر_${year}.xlsx`);
+  alert('تم تصدير شيت تصفية أرصدة المقيمين السنوي بنجاح.');
+}
+
+/**
+ * 7. REPORTS & PAYROLL CLOSING
+ */
+function initReportsView() {
+  const today = new Date();
+  const f = new Date(today); f.setDate(26); f.setMonth(f.getMonth() - 1);
+  const t = new Date(today); t.setDate(25);
+  document.getElementById('repStartDate').value = f.toISOString().slice(0, 10);
+  document.getElementById('repEndDate').value = t.toISOString().slice(0, 10);
+}
+
+function generateReport() {
+  const from = document.getElementById('repStartDate').value;
+  const to = document.getElementById('repEndDate').value;
+  const branch = document.getElementById('repBranch').value;
+  const q = (document.getElementById('repSearchEmp').value || '').trim().toLowerCase();
+
+  const tb = document.querySelector('#reportTable tbody');
+  tb.innerHTML = '';
+
+  let list = emps.filter(e => e.active !== false);
+  if (currentUser && currentUser.role !== 'admin') {
+    list = list.filter(e => e.factory === currentUser.branch);
+  } else if (branch) {
+    list = list.filter(e => e.factory === branch);
+  }
+  if (q) list = list.filter(e => String(e.code).includes(q) || String(e.name || '').toLowerCase().includes(q));
+
+  let totalPresent = 0, totalAbs = 0, totalDeductions = 0, totalOt1 = 0, totalOt2 = 0;
+
+  list.forEach(emp => {
+    let daysPresent = 0, daysAbsent = 0, absDeductions = 0;
+    let delayPen = 0, earlyPen = 0, noSignPen = 0, permDeductHours = 0, unpaidLeaves = 0, penalties = 0;
+    let extra1 = 0, extra2 = 0, bayatHolidayOt = 0;
+
+    for (let d = new Date(from + 'T12:00:00'); d <= new Date(to + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+      const iso = d.toISOString().slice(0, 10);
+      const key = `${iso}_${emp.code}`;
+      const rec = attendance[key];
+
+      if (rec) {
+        if (rec.in1 || rec.out1 || rec.mission) daysPresent++;
+        if (rec.absent) {
+          daysAbsent++;
+          const ord = calculateAbsenceOrdinal(emp.code, iso);
+          absDeductions += (ord === 1 ? 1.25 : ord === 2 ? 1.5 : ord === 3 ? 2.0 : 3.0);
+        }
+        if (rec.delay) delayPen += 0.5;
+        if (rec.early) earlyPen += 0.5;
+        if (rec.noSign) noSignPen += 0.5;
+        if (rec.permHours && rec.permType === 'deduct') permDeductHours += Number(rec.permHours);
+        if (rec.leaveStatus === 'unpaid') unpaidLeaves += 1;
+        if (rec.leaveStatus === 'half_unpaid') unpaidLeaves += 0.5;
+        if (rec.penaltyDays) penalties += Number(rec.penaltyDays);
+        if (rec.extra) {
+          if (rec.extraFactor == 2) extra2 += Number(rec.extra);
+          else extra1 += Number(rec.extra);
+        }
+      }
+    }
+
+    const totalDaysDeducted = absDeductions + delayPen + earlyPen + noSignPen + unpaidLeaves + penalties;
+
+    totalPresent += daysPresent;
+    totalAbs += daysAbsent;
+    totalDeductions += totalDaysDeducted;
+    totalOt1 += extra1;
+    totalOt2 += extra2;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${emp.code}</b></td>
+      <td style="text-align:right"><b>${emp.name}</b></td>
+      <td>${emp.factory || 'العبور'}</td>
+      <td>${emp.dept || '-'}</td>
+      <td><b>${daysPresent}</b></td>
+      <td>${daysAbsent}</td>
+      <td style="color:var(--danger);font-weight:700">${absDeductions.toFixed(2)}</td>
+      <td>${delayPen || '-'}</td>
+      <td>${earlyPen || '-'}</td>
+      <td>${noSignPen || '-'}</td>
+      <td>${permDeductHours ? permDeductHours + 'س' : '-'}</td>
+      <td>${unpaidLeaves || '-'}</td>
+      <td>${penalties || '-'}</td>
+      <td style="color:var(--danger);font-weight:800;background:#fef2f2">${totalDaysDeducted.toFixed(2)} يوم</td>
+      <td>${extra1 ? extra1 + 'س' : '-'}</td>
+      <td>${extra2 ? extra2 + 'س' : '-'}</td>
+      <td>${bayatHolidayOt ? bayatHolidayOt + 'ي' : '-'}</td>
+    `;
+    tb.appendChild(tr);
+  });
+
+  const sumBox = document.getElementById('reportSummaryStats');
+  sumBox.innerHTML = `<b>إحصائيات تقفيل الفترة (${from} إلى ${to}):</b> إجمالي أيام الحضور: <b>${totalPresent}</b> | إجمالي الغيابات: <b>${totalAbs}</b> | إجمالي الخصومات: <b>${totalDeductions.toFixed(2)} يوم</b> | إضافي ×1: <b>${totalOt1} ساعة</b> | إضافي ×2: <b>${totalOt2} ساعة</b>`;
+  sumBox.style.display = 'block';
+}
+
+function exportPayrollExcel() {
+  const from = document.getElementById('repStartDate').value;
+  const to = document.getElementById('repEndDate').value;
+  const branch = document.getElementById('repBranch').value || 'كل_الفروع';
+
+  const rows = [
+    ['كود الموظف', 'الاسم', 'الفرع', 'الإدارة', 'أيام الحضور', 'أيام الغياب', 'خصم الغياب (أيام)', 'تأخير (أيام)', 'انصراف مبكر (أيام)', 'عدم توقيع (أيام)', 'أذونات مخصومة (ساعات)', 'إجازات بالخصم', 'جزاءات (أيام)', 'إجمالي أيام الخصم من المرتب', 'إضافي ساعات ×1', 'إضافي ساعات ×2']
+  ];
+
+  let list = emps.filter(e => e.active !== false);
+  if (branch && branch !== 'كل_الفروع') list = list.filter(e => e.factory === branch);
+
+  list.forEach(emp => {
+    let daysPresent = 0, daysAbsent = 0, absDeductions = 0;
+    let delayPen = 0, earlyPen = 0, noSignPen = 0, permDeductHours = 0, unpaidLeaves = 0, penalties = 0;
+    let extra1 = 0, extra2 = 0;
+
+    for (let d = new Date(from + 'T12:00:00'); d <= new Date(to + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+      const iso = d.toISOString().slice(0, 10);
+      const key = `${iso}_${emp.code}`;
+      const rec = attendance[key];
+
+      if (rec) {
+        if (rec.in1 || rec.out1 || rec.mission) daysPresent++;
+        if (rec.absent) {
+          daysAbsent++;
+          const ord = calculateAbsenceOrdinal(emp.code, iso);
+          absDeductions += (ord === 1 ? 1.25 : ord === 2 ? 1.5 : ord === 3 ? 2.0 : 3.0);
+        }
+        if (rec.delay) delayPen += 0.5;
+        if (rec.early) earlyPen += 0.5;
+        if (rec.noSign) noSignPen += 0.5;
+        if (rec.permHours && rec.permType === 'deduct') permDeductHours += Number(rec.permHours);
+        if (rec.leaveStatus === 'unpaid') unpaidLeaves += 1;
+        if (rec.leaveStatus === 'half_unpaid') unpaidLeaves += 0.5;
+        if (rec.penaltyDays) penalties += Number(rec.penaltyDays);
+        if (rec.extra) {
+          if (rec.extraFactor == 2) extra2 += Number(rec.extra);
+          else extra1 += Number(rec.extra);
+        }
+      }
+    }
+
+    const totalDaysDeducted = absDeductions + delayPen + earlyPen + noSignPen + unpaidLeaves + penalties;
+
+    rows.push([
+      emp.code, emp.name, emp.factory || 'العبور', emp.dept || '',
+      daysPresent, daysAbsent, absDeductions, delayPen, earlyPen, noSignPen,
+      permDeductHours, unpaidLeaves, penalties, totalDaysDeducted, extra1, extra2
+    ]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'تقفيل الرواتب');
+  XLSX.writeFile(wb, `شيت_تقفيل_المرتبات_${branch}_${from}_إلى_${to}.xlsx`);
+}
+
+/**
+ * 8. ZK BIOMETRIC CSV & EXCEL IMPORT
+ */
+async function importBiometricFile() {
+  const fileInput = document.getElementById('zkFileInput');
+  const targetBranch = document.getElementById('zkTargetBranch').value;
+  const msg = document.getElementById('zkImportResultMsg');
+
+  if (!fileInput.files.length) return alert('يرجى اختيار ملف البصمة أولاً');
+  const file = fileInput.files[0];
+
+  try {
+    let rows = [];
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      const buffer = await file.arrayBuffer();
+      const txt = new TextDecoder('windows-1256').decode(buffer);
+      const delim = txt.includes(';') ? ';' : ',';
+      rows = txt.split(/\r?\n/).map(line => line.split(delim).map(s => s.replace(/^"|"$/g, '').trim()));
+    } else {
+      const data = new Uint8Array(await file.arrayBuffer());
+      const wb = XLSX.read(data, { type: 'array' });
+      rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+    }
+
+    let updatedCount = 0, unrecognized = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r || r.length < 3) continue;
+
+      const code = String(r[0] || '').trim();
+      let dateRaw = String(r[2] || '').trim();
+      const inTime = String(r[3] || '').trim().slice(0, 5);
+      const outTime = String(r[4] || '').trim().slice(0, 5);
+
+      if (!code) continue;
+
+      let isoDate = '';
+      if (dateRaw.includes('/')) {
+        const p = dateRaw.split('/');
+        isoDate = p[0].length === 4 ? `${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}` : `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+      } else if (dateRaw.includes('-')) {
+        isoDate = dateRaw.slice(0, 10);
+      }
+
+      if (!isoDate) continue;
+
+      const emp = emps.find(e => String(e.code) === code);
+      if (!emp) {
+        if (!unrecognized.includes(code)) unrecognized.push(code);
+      }
+
+      const key = `${isoDate}_${code}`;
+      if (!attendance[key]) attendance[key] = {};
+      const rec = attendance[key];
+
+      if (inTime && inTime !== '00:00') rec.in1 = inTime;
+      if (outTime && outTime !== '00:00') rec.out1 = outTime;
+
+      if ((rec.in1 && !rec.out1) || (!rec.in1 && rec.out1)) {
+        rec.noSign = '0.5';
+      }
+
+      updatedCount++;
+    }
+
+    saveAllData();
+    renderDaily();
+
+    msg.innerHTML = `تم استيراد وتحديث <b>${updatedCount}</b> سجل حضور بنجاح لفرع ${targetBranch}.` + 
+      (unrecognized.length ? `<br><span style="color:var(--danger)">⚠️ أكواد غير مسجلة ببيانات العاملين: ${unrecognized.join(', ')}</span>` : '');
+    alert('تم استيراد ملف البصمة بنجاح.');
+  } catch (err) {
+    alert('خطأ أثناء قراءة ملف البصمة: ' + err.message);
+  }
+}
+
+/**
+ * 9. CLOUD SYNC & FIREBASE
+ */
+function openFirebaseSettingsModal() {
+  const conf = FirebaseSync.getConfig() || {};
+  document.getElementById('fbApiKey').value = conf.apiKey || '';
+  document.getElementById('fbProjectId').value = conf.projectId || '';
+  document.getElementById('fbAppId').value = conf.appId || '';
+  document.getElementById('firebaseModal').style.display = 'flex';
+}
+
+function closeFirebaseSettingsModal() {
+  document.getElementById('firebaseModal').style.display = 'none';
+}
+
+async function saveFirebaseSettings() {
+  let config = {};
+  const rawJson = document.getElementById('fbRawJson').value.trim();
+
+  if (rawJson) {
+    try {
+      config = JSON.parse(rawJson);
+    } catch(e) {
+      return alert('صيغة كود JSON غير صحيحة');
+    }
+  } else {
+    config = {
+      apiKey: document.getElementById('fbApiKey').value.trim(),
+      projectId: document.getElementById('fbProjectId').value.trim(),
+      appId: document.getElementById('fbAppId').value.trim()
+    };
+  }
+
+  if (!config.apiKey || !config.projectId) {
+    return alert('يرجى إدخال apiKey و projectId على الأقل');
+  }
+
+  FirebaseSync.saveConfig(config);
+  closeFirebaseSettingsModal();
+  const ok = await FirebaseSync.init();
+  if (ok) {
+    setupRealtimeListeners();
+    alert('تم الاتصال بالسحابة بنجاح! يتم الآن حفظ البيانات ومزامنتها في اللحظة نفسها مع العبور والسويس والإسكندرية.');
+  }
+}
+
+function clearFirebaseConfig() {
+  FirebaseSync.saveConfig(null);
+  closeFirebaseSettingsModal();
+  location.reload();
+}
+
+function syncToCloud(collection, docId, data) {
+  if (FirebaseSync.isConnected) {
+    FirebaseSync.setDoc(collection, docId, data);
+  }
+}
+
+function setupRealtimeListeners() {
+  if (!FirebaseSync.isConnected) return;
+
+  FirebaseSync.listenCollection('attendance', (items) => {
+    let changed = false;
+    items.forEach(doc => {
+      const id = doc._id;
+      if (JSON.stringify(attendance[id]) !== JSON.stringify(doc)) {
+        attendance[id] = { ...doc };
+        delete attendance[id]._id;
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveAllData();
+      renderDaily();
+    }
+  });
+
+  FirebaseSync.listenCollection('pendingApprovals', (items) => {
+    pendingApprovals = items.map(d => {
+      const copy = { ...d };
+      delete copy._id;
+      return copy;
+    });
+    saveAllData();
+    renderApprovalsBadge();
+    if (document.getElementById('tab-approvals').style.display !== 'none') {
+      renderApprovalsQueue();
+    }
+  });
+
+  FirebaseSync.listenCollection('employees', (items) => {
+    let changed = false;
+    items.forEach(doc => {
+      const code = doc.code;
+      const idx = emps.findIndex(e => String(e.code) === String(code));
+      if (idx >= 0) {
+        emps[idx] = { ...emps[idx], ...doc };
+      } else {
+        emps.push(doc);
+      }
+      changed = true;
+    });
+    if (changed) {
+      saveAllData();
+      renderEmps();
+    }
+  });
+}
+
+async function syncAllLocalToCloud() {
+  if (!FirebaseSync.isConnected) return alert('الرجاء تفعيل اتصال Firebase أولاً من زر الإعدادات.');
+  try {
+    const backupData = {
+      emps, depts, attendance, leaveLedger, variableShifts, weeklyRosters, specialAttendance
+    };
+    await FirebaseSync.uploadFullData(backupData, (c, t) => {
+      console.log(`Synced ${c} of ${t}`);
+    });
+    alert('تم رفع ومزامنة كل البيانات المحلية إلى السحابة بنجاح.');
+  } catch(err) {
+    alert('خطأ أثناء المزامنة: ' + err.message);
+  }
+}
+
+function downloadFullBackupJSON() {
+  const payload = {
+    version: '9.5_multibranch_approval',
+    exportedAt: new Date().toISOString(),
+    emps, depts, attendance, leaveLedger, variableShifts, weeklyRosters, specialAttendance, pendingApprovals
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `نسخة_احتياطية_شاملة_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function restoreFullBackupJSON() {
+  const input = document.getElementById('restoreBackupFileInput');
+  if (!input.files.length) return alert('اختر ملف النسخة الاحتياطية .JSON أولاً');
+  if (!confirm('سيتم استبدال البيانات الحالية بمحتويات النسخة بالكامل. هل تريد المتابعة؟')) return;
+
+  try {
+    const text = await input.files[0].text();
+    const data = JSON.parse(text);
+    if (!data.emps || !data.attendance) throw new Error('صيغة ملف غير صالحة');
+
+    emps = data.emps || [];
+    depts = data.depts || [];
+    attendance = data.attendance || {};
+    leaveLedger = data.leaveLedger || [];
+    variableShifts = data.variableShifts || [];
+    weeklyRosters = data.weeklyRosters || [];
+    specialAttendance = data.specialAttendance || {};
+    pendingApprovals = data.pendingApprovals || [];
+
+    saveAllData();
+    renderDaily();
+    renderEmps();
+    renderApprovalsBadge();
+    alert('تمت استعادة البيانات بنجاح.');
+  } catch (err) {
+    alert('فشل استعادة النسخة: ' + err.message);
+  }
+}
+
+function buildSecurityRotationCycle() {
+  const code = document.getElementById('rotSecEmp').value;
+  const start = document.getElementById('rotSecStart').value;
+  const off = document.getElementById('rotSecOff').value;
+  const cycles = Number(document.getElementById('rotSecCycles').value) || 4;
+
+  if (!code || !start) return alert('يرجى اختيار الموظف وتاريخ بداية الدورة (السبت)');
+  const emp = emps.find(e => String(e.code) === String(code));
+  if (!emp) return;
+
+  const addDays = (iso, n) => {
+    const d = new Date(iso + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const shifts = [
+    { from: '07:00', to: '15:00' },
+    { from: '15:00', to: '23:00' },
+    { from: '23:00', to: '07:00' }
+  ];
+
+  for (let c = 0; c < cycles; c++) {
+    for (let w = 0; w < 3; w++) {
+      const wStart = addDays(start, (c * 3 + w) * 7);
+      const wEnd = addDays(wStart, 6);
+      weeklyRosters.push({
+        id: `ROT_${Date.now()}_${c}_${w}`,
+        code: code,
+        start: wStart,
+        end: wEnd,
+        from: shifts[w].from,
+        to: shifts[w].to,
+        off: off,
+        off2: w === 2 ? 'Friday' : ''
+      });
+
+      if (w === 0 || w === 1) {
+        const friday = addDays(wStart, 6);
+        const fStart = w === 0 ? `${friday}T07:00` : `${friday}T19:00`;
+        const fEnd = w === 0 ? `${friday}T19:00` : `${addDays(friday, 1)}T07:00`;
+        variableShifts.push({
+          id: `ROT_S_${Date.now()}_${friday}`,
+          code: code,
+          start: fStart,
+          end: fEnd,
+          hours: 12,
+          extra: 4,
+          factor: 2,
+          note: `وردية جمعة 12 ساعة (الساعات الزائدة عن 8 تُحتسب ×2)`
+        });
+      }
+    }
+  }
+
+  saveAllData();
+  renderShiftsModule();
+  alert(`تم إنشاء وحفظ دورة الأمن (${cycles} دورات، 3 أسابيع لكل دورة) للموظف ${emp.name}.`);
+}
+
+function renderShiftsModule() {
+  const sel = document.getElementById('rotSecEmp');
+  sel.innerHTML = '';
+  emps.forEach(e => {
+    const o = document.createElement('option');
+    o.value = e.code;
+    o.textContent = `${e.code} - ${e.name} (${e.factory || 'العبور'})`;
+    sel.appendChild(o);
+  });
+
+  const tb = document.querySelector('#rosterTable tbody');
+  tb.innerHTML = '';
+  weeklyRosters.forEach((r, idx) => {
+    const emp = emps.find(e => String(e.code) === String(r.code)) || {};
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.start}</td>
+      <td>${r.end}</td>
+      <td><b>${r.code} - ${emp.name || ''}</b></td>
+      <td>${r.from} - ${r.to}</td>
+      <td>${r.off} ${r.off2 ? ' + ' + r.off2 : ''}</td>
+      <td><button class="btn-danger" style="padding:2px 6px;font-size:11px" onclick="deleteWeeklyRoster(${idx})">حذف</button></td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+function deleteWeeklyRoster(idx) {
+  if (!confirm('حذف هذا الجدول؟')) return;
+  weeklyRosters.splice(idx, 1);
+  saveAllData();
+  renderShiftsModule();
+}
+
+// Initialization on DOM Load
+document.addEventListener('DOMContentLoaded', async () => {
+  checkAuth();
+  const dateInput = document.getElementById('dailyDate');
+  dateInput.value = new Date().toISOString().slice(0, 10);
+  document.getElementById('specialDate').value = new Date().toISOString().slice(0, 10);
+
+  if (window.FirebaseSync) {
+    FirebaseSync.onStatusChange((conn, msg) => {
+      const b = document.getElementById('cloudStatusBadge');
+      if (b) {
+        b.className = conn ? 'badge badge-online' : 'badge badge-offline';
+        b.textContent = conn ? '🟢 متصل سحابياً (مزامنة فورية)' : '⚪ محلي (أوفلاين)';
+      }
+      const det = document.getElementById('cloudDetailedStatus');
+      if (det) det.textContent = msg;
+    });
+
+    const connected = await FirebaseSync.init();
+    if (connected) setupRealtimeListeners();
+  }
+
+  renderDaily();
+  renderApprovalsBadge();
+});
+</script>
+</body>
+</html>
