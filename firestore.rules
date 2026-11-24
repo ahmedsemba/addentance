@@ -1,0 +1,62 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.role == 'admin';
+    }
+
+    function canAccessBranch(branchId) {
+      return signedIn() && (
+        isAdmin() ||
+        (
+          request.auth.token.role == 'branch' &&
+          request.auth.token.branch == branchId &&
+          branchId in ['obour', 'suez', 'alex']
+        )
+      );
+    }
+
+    // All operational data is isolated beneath a branch path.
+    match /branches/{branchId}/{collection}/{documentId} {
+      allow read: if canAccessBranch(branchId)
+        && collection in [
+          'employees',
+          'attendance',
+          'leaveLedger',
+          'departments',
+          'variableShifts',
+          'weeklyRosters',
+          'specialAttendance'
+        ];
+
+      allow create, update, delete: if canAccessBranch(branchId)
+        && collection in [
+          'employees',
+          'attendance',
+          'leaveLedger',
+          'departments',
+          'variableShifts',
+          'weeklyRosters',
+          'specialAttendance'
+        ];
+    }
+
+    // Audit records can be created by an authorized branch user but not edited
+    // or deleted by branch users. Admin can read them across all branches.
+    match /branches/{branchId}/auditLogs/{logId} {
+      allow read: if canAccessBranch(branchId);
+      allow create: if canAccessBranch(branchId);
+      allow update, delete: if isAdmin();
+    }
+
+    // Deny all legacy/root collections and all paths not explicitly listed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
